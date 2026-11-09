@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tracking an Argument</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#24203a;--muted:#6b6584;--bg:#f4f1ff;--purple:#7c3aed;--orange:#f97316;--teal:#0d9488;--pink:#db2777;--blue:#2563eb;--gold:#f59e0b;--good:#16a34a;--bad:#dc2626}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Nunito",Arial,sans-serif;color:var(--ink);font-size:18px;line-height:1.55;min-height:100vh;
+ background:linear-gradient(180deg,#1e1b4b 0,#312e81 220px,var(--bg) 220px)}
+.wrap{max-width:1000px;margin:0 auto;padding:12px 14px 90px}
+button{font-family:inherit}
+/* HUD */
+.hud{position:sticky;top:0;z-index:20;background:rgba(30,27,75,.96);backdrop-filter:blur(6px);color:#fff;padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.hud .av{font-size:30px;background:#fff2;border-radius:14px;width:46px;height:46px;display:flex;align-items:center;justify-content:center}
+.hud .nm{font-family:Fredoka;font-size:18px;line-height:1.1}
+.hud .nm small{display:block;font-family:Nunito;font-size:12px;opacity:.8}
+.xpwrap{flex:1 1 160px;min-width:140px}
+.xpbar{height:14px;background:#ffffff26;border-radius:99px;overflow:hidden}
+.xpfill{height:100%;width:0;background:linear-gradient(90deg,#facc15,#f97316);border-radius:99px;transition:width .8s cubic-bezier(.2,1.4,.4,1)}
+.xpl{font-size:12px;font-weight:800;opacity:.9}
+.stat{background:#ffffff1f;border-radius:99px;padding:5px 12px;font-weight:800;font-size:16px;white-space:nowrap}
+.hbtn{border:none;background:#facc15;color:#422006;border-radius:99px;padding:7px 12px;font-weight:800;cursor:pointer;font-size:15px}
+.coin{display:inline-block;animation:spin 3s linear infinite}
+@keyframes spin{0%,80%{transform:rotateY(0)}100%{transform:rotateY(360deg)}}
+/* hero */
+header.hero{color:#fff;text-align:center;padding:18px 10px 6px;position:relative}
+header.hero h1{font-family:Fredoka;font-size:clamp(30px,6vw,48px);margin:0;text-shadow:0 4px 0 #0005}
+header.hero p{margin:4px 0;opacity:.95}
+.logo{position:absolute;left:6px;top:8px;height:74px;background:#fff;border-radius:12px;padding:3px}
+.stars span{position:absolute;color:#fde68a;animation:tw 2.4s infinite ease-in-out}
+@keyframes tw{50%{opacity:.2;transform:scale(.6)}}
+/* cards */
+.card{background:#fff;border-radius:22px;padding:18px 20px;margin:14px 0;box-shadow:0 6px 20px rgba(36,32,58,.1)}
+h2{font-family:Fredoka;font-size:30px;margin:2px 0 8px;line-height:1.15}
+h3{font-family:Fredoka;font-size:23px;margin:4px 0 6px}
+.dir{background:#fff8db;border:3px dashed #facc15;border-radius:18px;padding:12px 16px;margin:12px 0}
+.dir ol{margin:4px 0;padding-left:24px}
+.help{background:#e0f2fe;border-color:#38bdf8}
+.say{border:none;background:#eef2ff;color:#3730a3;border-radius:99px;padding:6px 14px;font-weight:800;font-size:15px;cursor:pointer;margin:4px 4px 4px 0}
+.say:active{transform:scale(.96)}
+.big{border:none;color:#fff;font-family:Fredoka;font-size:22px;border-radius:18px;padding:12px 26px;cursor:pointer;background:var(--orange);box-shadow:0 5px 0 #c2410c;margin:10px 6px 4px 0}
+.big:active{transform:translateY(3px);box-shadow:0 2px 0 #c2410c}
+.big.alt{background:var(--purple);box-shadow:0 5px 0 #5b21b6}
+.big:disabled{opacity:.45;cursor:default}
+input[type=text]{font-size:20px;padding:10px 14px;border-radius:14px;border:3px solid #ddd6fe;width:100%;max-width:360px;font-weight:800;font-family:Nunito}
+/* map */
+.map{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:10px}
+.node{border:none;border-radius:22px;padding:16px;color:#fff;text-align:left;cursor:pointer;position:relative;min-height:150px;box-shadow:0 6px 0 rgba(0,0,0,.2);transition:transform .2s}
+.node:hover:not(.locked){transform:translateY(-4px) rotate(-1deg)}
+.node .e{font-size:44px;display:block;animation:bob 2.5s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-6px)}}
+.node .t{font-family:Fredoka;font-size:21px;line-height:1.15}
+.node .s{font-size:13px;font-weight:800;opacity:.9}
+.node.locked{filter:grayscale(1);opacity:.6;cursor:not-allowed}
+.node .lk{position:absolute;right:12px;top:10px;font-size:26px}
+.node .stars3{position:absolute;right:12px;bottom:10px;font-size:20px}
+/* ican */
+.ican{display:flex;gap:12px;align-items:center;background:linear-gradient(90deg,#ede9fe,#fce7f3);border-radius:18px;padding:12px 16px;margin:8px 0}
+.ican .ic{font-size:36px}
+.stdtag{display:inline-block;background:#1e1b4b;color:#fff;border-radius:10px;padding:3px 10px;font-size:13px;font-weight:800}
+.steps{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 2px}
+.steps span{background:#ede9fe;border-radius:99px;padding:4px 12px;font-size:14px;font-weight:800;color:#5b21b6}
+.steps span.on{background:var(--purple);color:#fff}
+.steps span.done{background:#dcfce7;color:#166534}
+/* text */
+.story{background:#fffdf4;border:3px solid #fde68a;border-radius:18px;padding:12px 18px}
+.story p{margin:8px 0}
+.pn{display:inline-block;background:#f59e0b;color:#fff;border-radius:50%;width:28px;height:28px;line-height:28px;text-align:center;font-size:14px;font-weight:800;margin-right:6px}
+.poem{background:#fdf4ff;border:3px solid #f0abfc;border-radius:18px;padding:12px 18px;margin:10px 0}
+.poem h4{font-family:Fredoka;font-size:20px;margin:0 0 4px;color:#a21caf}
+.poem .form{display:inline-block;background:#a21caf;color:#fff;border-radius:99px;padding:2px 10px;font-size:13px;font-weight:800}
+.poem pre{font-family:Nunito;font-size:18px;white-space:pre-wrap;margin:6px 0}
+details{margin:8px 0}
+summary{cursor:pointer;font-family:Fredoka;font-size:20px;color:#92400e}
+/* teach visuals */
+.teach{background:#f8fafc;border-radius:18px;padding:12px 16px;margin:10px 0}
+.chain{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap;justify-content:center;margin:10px 0}
+.lnk{flex:1 1 160px;max-width:230px;border-radius:16px;padding:12px;text-align:center;color:#fff;font-weight:800;opacity:0;transform:scale(.6)}
+.lnk .em{font-size:36px;display:block}
+.arrow{align-self:center;font-size:30px;opacity:0;color:#7c3aed}
+.play .lnk,.play .arrow{animation:pop .5s forwards}
+@keyframes pop{to{opacity:1;transform:scale(1)}}
+.plant{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:10px 0}
+.stage{flex:1 1 200px;max-width:280px;border:3px solid #bbf7d0;border-radius:18px;padding:10px;text-align:center;background:#f0fdf4;cursor:pointer}
+.stage .pl{font-size:20px;height:80px;display:flex;align-items:flex-end;justify-content:center;transition:font-size .6s cubic-bezier(.2,1.6,.4,1)}
+.stage.grown .pl{font-size:64px}
+.stage .st{display:none;font-size:16px}
+.stage.grown .st{display:block;animation:fade .5s}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+.cam{position:relative;background:#0f172a;border-radius:18px;padding:16px;color:#fff;margin:10px 0;overflow:hidden}
+.chars{display:flex;justify-content:space-around;position:relative;z-index:1}
+.ch{text-align:center;font-size:48px;line-height:1}
+.ch small{display:block;font-size:14px;font-weight:800;margin-top:4px}
+.lens{position:absolute;top:8px;width:110px;height:110px;border-radius:50%;border:5px solid #facc15;box-shadow:0 0 0 2000px rgba(15,23,42,.55);transition:left .7s cubic-bezier(.3,1.3,.5,1),width .7s,height .7s,top .7s;z-index:2;pointer-events:none}
+.camtxt{margin-top:12px;background:#1e293b;border-radius:12px;padding:10px 12px;font-size:16px;min-height:66px;position:relative;z-index:3}
+.povbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;position:relative;z-index:3}
+.povbtns button{border:none;border-radius:12px;padding:8px 12px;font-weight:800;cursor:pointer;background:#334155;color:#fff}
+.povbtns button.on{background:#facc15;color:#422006}
+.forms{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin:10px 0}
+.fcard{border-radius:16px;padding:12px;color:#fff;cursor:pointer;perspective:800px;min-height:150px;position:relative}
+.fcard .in{transition:transform .6s;transform-style:preserve-3d;position:relative;min-height:126px}
+.fcard.flip .in{transform:rotateY(180deg)}
+.fcard .fr,.fcard .bk{position:absolute;inset:0;backface-visibility:hidden}
+.fcard .bk{transform:rotateY(180deg);font-size:15px}
+.fcard .fe{font-size:40px}
+.fcard .fn{font-family:Fredoka;font-size:22px}
+.syl{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.syl span{background:#fae8ff;border-radius:8px;padding:2px 7px;font-weight:800;opacity:.25;transition:all .25s}
+.syl span.lit{opacity:1;background:#d946ef;color:#fff;transform:translateY(-3px)}
+.sylcount{font-family:Fredoka;font-size:22px;color:#a21caf;min-width:40px;display:inline-block}
+.model{border-left:6px solid #7c3aed;background:#faf5ff;border-radius:0 16px 16px 0;padding:10px 14px;margin:10px 0}
+.model b.th{color:#7c3aed}
+/* questions */
+.q{background:#faf7ff;border:3px solid #ede9fe;border-radius:18px;padding:14px;margin:12px 0}
+.qt{font-weight:800}
+.opts{display:grid;gap:8px;margin-top:8px}
+.opt{text-align:left;border:3px solid #ddd6fe;background:#fff;border-radius:14px;padding:10px 14px;font-size:17px;font-weight:700;cursor:pointer;color:var(--ink);transition:transform .1s}
+.opt:hover:not(:disabled){border-color:var(--purple);transform:translateX(3px)}
+.opt:disabled{cursor:default}
+.opt.right{background:#dcfce7;border-color:var(--good)}
+.opt.wrong{background:#fee2e2;border-color:var(--bad);text-decoration:line-through;opacity:.8}
+.opt.reveal{border-color:var(--good);border-style:dashed}
+.hint{border:none;background:#fef3c7;color:#92400e;border-radius:99px;padding:6px 14px;font-weight:800;cursor:pointer;font-size:15px}
+.hintbox{background:#fef3c7;border-radius:12px;padding:8px 12px;margin-top:8px;font-weight:700;animation:fade .4s}
+.fb{border-radius:12px;padding:10px 12px;margin-top:8px;font-weight:700;animation:fade .4s}
+.fb.good{background:#dcfce7;color:#14532d}
+.fb.try{background:#ffedd5;color:#7c2d12}
+.fb.bad{background:#fee2e2;color:#7f1d1d}
+.shake{animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+/* boss */
+.boss{text-align:center;background:linear-gradient(180deg,#450a0a,#7f1d1d);color:#fff;border-radius:22px;padding:16px;position:relative;overflow:hidden}
+.bossface{font-size:90px;display:inline-block;animation:bob 2s infinite}
+.bossface.hit{animation:hit .5s}
+@keyframes hit{0%{transform:scale(1)}30%{transform:scale(.8) rotate(-12deg);filter:brightness(3)}60%{transform:scale(1.1) rotate(8deg)}100%{transform:scale(1)}}
+.hp{height:22px;background:#0006;border-radius:99px;overflow:hidden;max-width:420px;margin:8px auto}
+.hpfill{height:100%;background:linear-gradient(90deg,#22c55e,#facc15);transition:width .6s}
+/* floats */
+.float{position:fixed;z-index:60;font-family:Fredoka;font-size:26px;color:#f59e0b;text-shadow:0 2px 0 #fff;pointer-events:none;animation:up 1.2s forwards}
+@keyframes up{to{transform:translateY(-80px);opacity:0}}
+/* badge */
+.badgepop{text-align:center;padding:10px}
+.badgepop .b{font-size:90px;display:inline-block;animation:badge 1s cubic-bezier(.2,1.6,.4,1)}
+@keyframes badge{from{transform:scale(0) rotate(-180deg)}to{transform:scale(1) rotate(0)}}
+.blist{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.blist span{background:#f5f3ff;border-radius:14px;padding:6px 10px;font-weight:800}
+.blist span.no{opacity:.35;filter:grayscale(1)}
+/* shop */
+.modal{display:none;position:fixed;inset:0;background:#0009;z-index:40;padding:14px;overflow:auto}
+.modal.on{display:block}
+.mbox{background:#fff;max-width:760px;margin:30px auto;border-radius:22px;padding:18px}
+.shop{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.item{border:3px solid #ede9fe;border-radius:16px;padding:10px;text-align:center;background:#faf7ff}
+.item .ie{font-size:46px}
+.item button{border:none;border-radius:12px;padding:6px 12px;font-weight:800;cursor:pointer;background:var(--gold);color:#422006;margin-top:4px}
+.item button:disabled{background:#e5e7eb;color:#6b7280;cursor:default}
+table.rt{width:100%;border-collapse:collapse}
+table.rt td,table.rt th{padding:8px;border-bottom:2px solid #ede9fe;text-align:left}
+
+.article{background:#fff;border:3px solid #cbd5e1;border-radius:18px;padding:12px 18px}
+.article p{margin:8px 0}.aby{font-size:13px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px}
+.atitle{color:#0f172a;margin:2px 0 8px}
+.feat-heading{font-family:Fredoka;font-size:21px;color:#0d9488;margin:14px 0 4px;border-bottom:3px solid #99f6e4;display:inline-block}
+.feat-caption{font-size:16px;background:#f1f5f9;border-radius:10px;padding:6px 10px;margin:4px 0 10px;color:#334155}
+.feat-side{background:#fef9c3;border:3px solid #facc15;border-radius:14px;padding:8px 12px;margin:10px 0;font-weight:700;float:none}
+.feat-diagram{background:#f0fdfa;border:3px solid #5eead4;border-radius:16px;padding:10px;margin:10px 0}
+.dtitle{font-family:Fredoka;font-size:18px;color:#0f766e;text-align:center}
+.dsteps{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin:8px 0}
+.dstep{background:#fff;border-radius:12px;padding:8px;text-align:center;font-size:15px;border:2px solid #99f6e4;animation:pop .5s backwards}
+.dstep:nth-child(2){animation-delay:.3s}.dstep:nth-child(3){animation-delay:.6s}.dstep:nth-child(4){animation-delay:.9s}
+.dstep span{display:block;font-size:30px}
+svg.mound{width:100%;max-width:340px;display:block;margin:0 auto}
+.stick{animation:poke 3s ease-in-out infinite;transform-origin:300px 20px}
+@keyframes poke{0%,100%{transform:translate(30px,-9px)}40%,60%{transform:translate(0,0)}}
+.ants{animation:antz 3s ease-in-out infinite}
+@keyframes antz{0%,55%{opacity:0;transform:translate(0,0)}70%{opacity:1}100%{opacity:1;transform:translate(30px,-9px)}}
+.hunt{background:#f8fafc;border-radius:16px;padding:10px}
+.mini{background:#fff;border:3px solid #e2e8f0;border-radius:14px;padding:10px;display:grid;gap:6px}
+.mini>div,.m-b{transition:all .3s;border-radius:8px;padding:4px 6px}
+.m-h{font-family:Fredoka;font-size:20px;color:#0d9488}.m-d{text-align:center;font-size:28px;background:#f0fdfa}.m-c{font-size:15px;color:#475569}.m-s{background:#fef9c3;font-weight:700;font-size:15px}
+.glow{box-shadow:0 0 0 4px #facc15,0 0 18px 6px #fde047;transform:scale(1.03);background:#fffbeb !important}
+.fbtns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.fbtns button{border:none;border-radius:12px;padding:8px 12px;font-weight:800;background:#e2e8f0;cursor:pointer}
+.fbtns button.on{background:#facc15}
+.huntx{background:#1e293b;color:#fff;border-radius:12px;padding:10px;margin-top:8px;font-size:16px;min-height:50px}
+.umb{background:linear-gradient(180deg,#dbeafe,#eff6ff);border-radius:18px;padding:12px;position:relative;overflow:hidden;min-height:330px}
+.utop{text-align:center;font-size:70px;line-height:1}.ulabel{font-size:16px;font-weight:800;background:#2563eb;color:#fff;border-radius:12px;padding:8px;margin:4px auto 0;max-width:520px}
+.drops{display:grid;gap:8px;margin-top:12px;justify-items:center}
+.drop{background:#fff;border:3px solid #93c5fd;border-radius:12px;padding:6px 12px;font-weight:800;font-size:16px;opacity:0;transform:translateY(-120px)}
+.rain .drop{animation:fall .7s forwards}.rain .d1{animation-delay:.2s}.rain .d2{animation-delay:.7s}.rain .d3{animation-delay:1.2s}
+.rain .drop.bad{border-color:#fca5a5;animation:fallaway 2.2s 1.7s forwards}
+@keyframes fall{to{opacity:1;transform:translateY(0)}}
+@keyframes fallaway{0%{opacity:0;transform:translateY(-120px)}35%{opacity:1;transform:translateY(0)}60%{transform:translateY(0) rotate(0)}100%{opacity:0;transform:translate(420px,-40px) rotate(60deg)}}
+.pie{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:10px 0}
+.slice{border-radius:60px 60px 18px 18px;color:#fff;padding:12px;text-align:center;cursor:pointer;font-size:20px;transition:transform .3s}
+.slice:hover{transform:translateY(-4px)}.slice .se{font-size:38px}.slice .sx{display:none;font-size:15px;margin-top:6px;text-align:left}
+.slice.open .sx{display:block;animation:fade .4s}
+.venn{position:relative;height:230px;margin:10px 0;background:#fff7ed;border-radius:18px;overflow:hidden}
+.vc{position:absolute;top:20px;width:180px;height:160px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-size:15px;color:#fff;transition:left .9s cubic-bezier(.3,1.3,.5,1);padding:10px}
+.va{background:rgba(37,99,235,.85);left:2%}.vb{background:rgba(239,68,68,.85);left:calc(98% - 180px)}
+.join .va{left:calc(50% - 170px)}.join .vb{left:calc(50% - 10px)}
+.vmid{position:absolute;left:50%;top:91%;transform:translate(-50%,-50%) scale(0);background:#facc15;color:#422006;font-weight:800;border-radius:12px;padding:6px 10px;font-size:14px;transition:transform .5s .8s;z-index:2;white-space:nowrap}
+.join .vmid{transform:translate(-50%,-50%) scale(1)}
+.house{display:flex;flex-direction:column;align-items:center;gap:6px;margin:10px 0}
+.hb{opacity:0;transform:translateY(-30px)}
+.roof{background:#7c3aed;color:#fff;font-weight:800;padding:14px 18px;clip-path:polygon(50% 0,100% 100%,0 100%);width:100%;max-width:600px;text-align:center;padding:46px 24% 12px;font-size:15px}
+.pillars{display:flex;gap:8px;width:100%;max-width:560px;justify-content:space-between}
+.pillar{flex:1;background:#ede9fe;border:3px solid #a78bfa;border-radius:8px;padding:12px 6px;text-align:center;font-weight:800;font-size:14px;min-height:110px}
+.found{background:#78716c;color:#fff;border-radius:8px;padding:10px;width:100%;max-width:620px;text-align:center;font-weight:800;font-size:14px}
+.built .found{animation:pop2 .6s .1s forwards}.built .pillar{animation:pop2 .6s forwards}.built .pillar:nth-child(1){animation-delay:.8s}.built .pillar:nth-child(2){animation-delay:1.1s}.built .pillar:nth-child(3){animation-delay:1.4s}.built .roof{animation:pop2 .7s 2s forwards}
+@keyframes pop2{to{opacity:1;transform:translateY(0)}}
+
+.pline{font-size:18px;margin:3px 0}.ln{display:inline-block;min-width:26px;color:#a21caf;font-weight:800;font-size:14px}
+.sky{border-radius:18px;padding:14px;color:#fff;background:linear-gradient(180deg,#334155,#475569);transition:background 1s;position:relative}
+.sky.s1{background:linear-gradient(180deg,#1e293b,#334155)}.sky.s2{background:linear-gradient(180deg,#0f172a,#1e293b)}.sky.s3{background:linear-gradient(180deg,#312e81,#6d28d9)}
+.sky.dawn{background:linear-gradient(180deg,#f59e0b,#fde68a);color:#422006}
+.toneTag{position:absolute;right:12px;top:10px;background:#fff;color:#111;border-radius:99px;padding:4px 12px;font-weight:800;font-size:15px}
+.sline{padding:3px 8px;border-radius:8px;transition:all .3s;opacity:.6}.sline.lit{opacity:1;background:#ffffff40;transform:scale(1.03);font-weight:800}
+.tonebank span{display:inline-block;background:#fce7f3;border-radius:99px;padding:2px 10px;margin:3px;font-weight:800;font-size:15px}
+.tm{background:#fefce8;border:3px solid #fde047;border-radius:18px;padding:12px}
+.tmscene{min-height:150px;border-radius:14px;padding:12px;background:#fff;display:flex;align-items:center;justify-content:center;text-align:center}
+.warp{animation:warp .9s}
+@keyframes warp{0%{transform:scale(1)}45%{transform:scale(.2) rotate(180deg);opacity:0;filter:blur(6px)}100%{transform:scale(1) rotate(360deg);opacity:1}}
+.era .eem{font-size:44px}.era.old{filter:sepia(.7);background:#fef3c7;border-radius:12px;padding:10px}.era.new{background:#ecfeff;border-radius:12px;padding:10px}
+.tm .povbtns button{background:#ca8a04}.tm .povbtns button.on{background:#7c2d12;color:#fff}
+.tri{position:relative;max-width:360px;margin:8px auto}.trisvg{width:100%}
+.corner{position:absolute;border:none;border-radius:16px;padding:8px 12px;font-weight:800;cursor:pointer;color:#fff;font-size:15px;box-shadow:0 4px 0 #0003;animation:bob 2.5s infinite}
+.c1{left:50%;top:-6px;transform:translateX(-50%);background:#2563eb}.c2{left:-4px;bottom:-6px;background:#db2777;animation-delay:.4s}.c3{right:-4px;bottom:-6px;background:#16a34a;animation-delay:.8s}
+.corner.on{outline:4px solid #facc15}
+.sorter{background:#f8fafc;border-radius:16px;padding:10px}
+.chips{display:grid;gap:6px}.chip{transition:opacity .4s;background:#fff;border:3px solid #cbd5e1;border-radius:12px;padding:6px 10px;font-weight:700;font-size:15px}
+.bins{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}.bin{background:#e2e8f0;border-radius:12px;padding:6px;font-weight:800;text-align:center;font-size:15px;min-height:90px}
+.landed{background:#fff;border-radius:10px;padding:4px;font-size:13px;margin-top:4px;animation:pop .5s}
+.builder{background:#f0fdfa;border-radius:16px;padding:10px}
+.bbtns,.cbtns,.mbtns{display:flex;flex-wrap:wrap;gap:6px}.bbtns button,.cbtns button,.mbtns button{border:none;border-radius:12px;padding:8px 12px;font-weight:800;background:#ccfbf1;cursor:pointer;font-size:16px}
+.bbtns button.on,.cbtns button.on,.mbtns button.on{background:#facc15}
+.bstage{min-height:150px;margin-top:10px;background:#fff;border-radius:14px;padding:12px;text-align:center}
+.pieces{display:flex;justify-content:center;align-items:center;gap:6px;flex-wrap:wrap}
+.piece{border-radius:14px;padding:10px 14px;color:#fff;opacity:0;animation:slidein .5s forwards}
+.piece.p{background:#2563eb}.piece.r{background:#16a34a}.piece.s{background:#ea580c}
+.pw{font-family:Fredoka;font-size:26px}.pm{font-size:14px;font-weight:800}
+.plus{font-size:28px;font-weight:800;opacity:0;animation:pop .3s forwards}
+.whole{margin-top:12px;font-size:20px;opacity:0;animation:fade .6s forwards;background:#fef9c3;border-radius:12px;padding:8px}
+@keyframes slidein{from{opacity:0;transform:translateY(-40px) rotate(-10deg)}to{opacity:1;transform:none}}
+.rootgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px}.rootgrid div{background:#dcfce7;border-radius:10px;padding:6px 8px;font-size:15px}
+.rootgrid .pf{background:#dbeafe}.rootgrid .sf{background:#ffedd5}
+.clue{background:#eff6ff;border-radius:16px;padding:10px}.cbtns button{background:#bfdbfe}
+.cstage{min-height:150px;margin-top:10px;background:#fff;border-radius:14px;padding:12px}
+.ctype{font-family:Fredoka;font-size:22px;color:#2563eb}
+.csent{font-size:20px;margin:8px 0;position:relative;padding-left:40px}
+.csent u{text-decoration:none;background:#ede9fe;color:#5b21b6;font-weight:800;border-radius:6px;padding:0 4px}
+.csent mark{background:linear-gradient(90deg,#fde047 50%,transparent 50%);background-size:200% 100%;background-position:100% 0;animation:hl 1s .6s forwards;border-radius:4px;padding:0 2px}
+@keyframes hl{to{background-position:0 0}}
+.mag{position:absolute;left:0;top:-4px;font-size:30px;animation:sweep 1.4s ease-in-out}
+@keyframes sweep{0%{left:90%}100%{left:0}}
+.meterwrap{background:#faf5ff;border-radius:16px;padding:10px}.mbtns button{background:#e9d5ff}
+.meter{margin-top:10px;background:#fff;border-radius:14px;padding:10px;position:relative}
+.mbar{display:flex;justify-content:space-between;font-weight:800;font-size:14px;background:linear-gradient(90deg,#fecaca,#e2e8f0,#bbf7d0);border-radius:99px;padding:6px 12px}
+.mchips{position:relative;min-height:60px;margin-top:6px;transition:height .3s}
+.mchip{position:absolute;transform:translateX(-50%);background:#fff;border:3px solid #a78bfa;border-radius:99px;padding:3px 12px;font-weight:800;transition:left 1s cubic-bezier(.3,1.4,.5,1),background .6s;white-space:nowrap}
+
+.mq{background:#1e1b4b;color:#fff;border-radius:16px;padding:12px 16px;margin:12px 0}
+.mqlbl{font-size:13px;font-weight:800;letter-spacing:1px;color:#fde68a}
+.mstep{display:none;border-left:6px solid #7c3aed;background:#faf5ff;border-radius:0 16px 16px 0;padding:10px 14px;margin:10px 0;animation:fade .5s}
+.mstep.show{display:block}
+.msn{display:inline-block;background:#7c3aed;color:#fff;border-radius:99px;padding:2px 12px;font-weight:800;font-size:14px;margin-bottom:4px}
+.msb .x{color:#dc2626;font-weight:800}.msb .ok{color:#16a34a;font-weight:800}
+.seq .rv{opacity:0;transform:translateY(12px)}
+.seq.go .rv{animation:pop2 .6s forwards}
+.seq.go .rv:nth-child(2){animation-delay:.6s}.seq.go .rv:nth-child(3){animation-delay:1.2s}.seq.go .rv:nth-child(4){animation-delay:1.8s}.seq.go .rv:nth-child(5){animation-delay:2.4s}.seq.go .rv:nth-child(6){animation-delay:3s}
+.rvbox{background:#fff;border:3px solid #ddd6fe;border-radius:14px;padding:10px 12px;margin:6px 0}
+.hlwrap{background:#f8fafc;border-radius:16px;padding:10px;margin:10px 0}
+.hlbtns{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.hlbtns button{border:none;border-radius:12px;padding:8px 12px;font-weight:800;background:#e2e8f0;cursor:pointer}
+.hlbtns button.on{background:#facc15}
+.hlx{background:#1e293b;color:#fff;border-radius:12px;padding:10px;font-size:16px;min-height:48px}
+[data-hlk]{transition:all .3s;border-radius:8px}
+.dict{background:#fff;border:3px solid #cbd5e1;border-radius:14px;padding:12px;font-size:17px}
+.structw,.infw,.mmw{background:#f0f9ff;border-radius:16px;padding:10px;margin:10px 0}
+.structw .bbtns button,.infw .bbtns button,.mmw .bbtns button{background:#bae6fd}
+.org{display:flex;align-items:center;justify-content:center;gap:8px;margin:10px 0;flex-wrap:wrap}
+.ob{background:#0ea5e9;color:#fff;border-radius:12px;padding:10px 14px;font-weight:800;animation:pop .5s backwards}
+.ob:nth-child(3){animation-delay:.3s}.ob:nth-child(5){animation-delay:.6s}.ob:nth-child(7){animation-delay:.9s}
+.ob.big{padding:16px 20px}.ob.hub{background:#7c3aed;border-radius:50%;padding:22px 16px}
+.arrowx{font-size:30px;color:#0369a1;animation:pop .5s .3s backwards}
+.vv{width:120px;height:90px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:22px;animation:pop .6s backwards}
+.vv.a{background:rgba(37,99,235,.85);margin-right:-30px}.vv.b{background:rgba(239,68,68,.85);animation-delay:.4s}
+.mmopts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.mmo{border-radius:12px;padding:10px;font-weight:800;border:3px solid #cbd5e1;transition:all .5s}
+.mmo.yes{animation:yes .6s .5s forwards}.mmo.no{animation:no .6s .5s forwards}
+@keyframes yes{to{background:#dcfce7;border-color:#16a34a;transform:scale(1.05)}}
+@keyframes no{to{opacity:.35;text-decoration:line-through}}
+.rline{display:flex;gap:10px;align-items:center;margin:4px 0;font-size:18px}
+.rl{color:#fff;font-weight:800;border-radius:8px;width:30px;text-align:center;opacity:0;transform:scale(0);transition:all .4s}
+.rline.on .rl{opacity:1;transform:scale(1)}
+.partab{display:inline-block;background:#1e1b4b;color:#fde68a;border-radius:8px;padding:1px 8px;font-size:13px;font-weight:800;margin-right:6px}
+.pline{white-space:pre-wrap}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:70}
+.saved{text-align:center;font-size:14px;color:var(--muted)}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<canvas id="confetti"></canvas>
+
+<div class="hud" id="hud">
+  <div class="av" id="hAv">🧑‍🎓</div>
+  <div class="nm"><span id="hName">Reader</span><small id="hTitle">Rookie Reader</small></div>
+  <div class="xpwrap"><div class="xpl" id="hLvl">Level 1 • 0 XP</div><div class="xpbar"><div class="xpfill" id="hXp"></div></div></div>
+  <div class="stat"><span class="coin">🪙</span> <span id="hCoins">0</span></div>
+  <div class="stat">🔥 <span id="hStreak">0</span></div>
+  <button class="hbtn" id="shopBtn">🛒 Shop</button>
+  <button class="hbtn" id="mapBtn" style="background:#a5b4fc;color:#1e1b4b">🗺️ Map</button>
+</div>
+
+<div class="wrap">
+<header class="hero">
+  <img class="logo" src="logo.png" alt="Literacy Locksmith logo" onerror="this.style.display='none'">
+  <div class="stars"><span style="left:8%;top:20%">✦</span><span style="left:85%;top:15%;animation-delay:.6s">✦</span><span style="left:70%;top:60%;animation-delay:1.2s">✦</span><span style="left:20%;top:70%;animation-delay:1.8s">✦</span></div>
+  <h1>🏛️ Tracking an Argument</h1>
+  <p>FAST Review Tutorial • <span data-nosay>ELA.6.R.2.4</span></p>
+</header>
+
+<main id="view"></main>
+<p class="saved">💾 Your progress saves automatically on this iPad.</p>
+</div>
+
+<div class="modal" id="shop"><div class="mbox">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <h2 style="margin:0">🛒 Avatar Shop</h2><div class="stat" style="background:#fef3c7">🪙 <span id="sCoins">0</span></div>
+    <button class="big alt" style="font-size:17px;padding:8px 16px;margin:0" id="shopClose">✖ Close</button>
+  </div>
+  <p>Earn 🪙 coins by answering correctly. Spend them on new avatars! (Avatars are just for fun. They never change your score.)</p>
+  <div class="shop" id="shopGrid"></div>
+</div></div>
+
+<script>
+/* =================== CONTENT =================== */
+const TEXTS = {
+ petB:{title:"Our School Needs Reading Dogs", by:"Opinion Essay by Marcus T., Grade 6", blocks:[
+  {p:"Our school should start a reading dog program, where trained therapy dogs listen to students read aloud. It would help nervous readers and make our library a happier place."},
+  {p:"First, reading to a dog is less scary than reading to a person. A dog won't laugh or correct you. Our school librarian, Ms. Okafor, says students in reading dog programs at other schools often ask to read more."},
+  {p:"Second, therapy dogs help people feel calm. Researchers have found that spending time with friendly dogs can lower stress. Less stress means students can focus better on reading."},
+  {p:"Some people worry about allergies. However, students with allergies could simply choose not to take part, and the dogs could visit in one room only."},
+  {p:"A reading dog program would cost very little and help many students. Let's bring the dogs to our library!"}
+ ]},
+ speech:{title:"Keep Our Library Open Later!", by:"Speech by Ava R., Student Council President", blocks:[
+  {p:"As your student council president for two years and a library volunteer every Friday, I know our library better than almost anyone."},
+  {p:"Right now, the library closes at 3:00, just ten minutes after the last bell."},
+  {p:"Last month, 140 students signed a petition asking for the library to stay open until 4:00."},
+  {p:"Imagine a sixth grader with no computer at home, standing outside a locked door with a project due tomorrow."},
+  {p:"Our librarian, Mrs. Patel, who has worked in school libraries for 20 years, agrees that longer hours would help students succeed."},
+  {p:"Staying open one more hour would cost less than one new set of textbooks."},
+  {p:"Don't let our classmates fall behind just because a door is locked. Please vote yes!"}
+ ]},
+ late:{title:"Let Students Sleep: Start School Later", by:"Argument Essay by Jordan P., Grade 6", blocks:[
+  {p:"Middle schools should start at 9:00 a.m. instead of 7:30 a.m. A later start would help students stay healthy and learn more."},
+  {p:"As a member of our school's health club who has read dozens of articles about student sleep, I have learned how important rest is."},
+  {p:"Doctors recommend that kids ages 6 to 12 get 9 to 12 hours of sleep each night. But many students who wake up at 6:00 a.m. get far less. When students are tired, they have trouble focusing, so their grades can suffer."},
+  {p:"Picture a sixth grader trying to solve math problems with heavy eyelids, fighting to stay awake."},
+  {p:"Some people argue that a later start would make after-school sports end too late. However, practices could be moved to early evening, or some could be held on weekends."},
+  {p:"Everyone at my lunch table agrees that school starts too early, so it must be true."},
+  {p:"Let's give students the rest they need to succeed!"}
+ ]}
+};
+
+const WORLDS = [
+{ id:"w1", emoji:"🏛️", title:"Claim, Reasons & Evidence", color:"#7c3aed", std:"ELA.6.R.2.4", badge:"🏛️", badgeName:"Argument Architect",
+  stdText:"Track the development of an argument, identifying the types of reasoning used.",
+  ican:"I can identify an author's claim, reasons, and evidence and track how the argument is built.",
+  texts:["petB"],
+  teach:`<p>An <b>argument</b> tries to convince you. It's built like a building:</p>
+  <div class="house" id="house">
+    <div class="roof hb">🏠 CLAIM: what the author wants you to believe or do</div>
+    <div class="pillars"><div class="pillar hb">REASON 1<br><small>why the claim is right</small></div><div class="pillar hb">REASON 2<br><small>another why</small></div><div class="pillar hb">REASON 3<br><small>another why</small></div></div>
+    <div class="found hb">🧱 EVIDENCE: facts, numbers, expert quotes, and examples that PROVE each reason</div>
+  </div>
+  <button class="say" id="houseBtn">▶ Build It Again</button>
+  <p>📍 <b>Where to find them:</b> The <b>claim</b> is usually in the first paragraph (and repeated at the end). Each body paragraph usually gives <b>one reason</b> plus its <b>evidence</b>. Look for <i>First, Second, Also, Another reason</i>.</p>
+  <p>🔎 <b>FAST question words:</b> <i>"What is the author's claim?"</i> • <i>"Which piece of evidence best supports the author's claim?"</i> • <i>"Which reason does paragraph 3 develop?"</i></p>`,
+  mq:"Which piece of evidence BEST supports the reason that reading dogs help nervous readers?<br>A. \"Students with allergies could choose not to take part.\"<br>B. \"A reading dog program would cost very little.\"<br>C. \"Ms. Okafor says students in reading dog programs at other schools often ask to read more.\"<br>D. \"The dogs could visit in one room only.\"",
+  steps:[
+   "🏠 <b>Find the claim first.</b> Paragraph 1: \"Our school <b>should</b> start a reading dog program.\"",
+   "🎯 <b>Find the exact reason in the question.</b> The reason is: dogs help <b>nervous readers</b>. That's paragraph 2 (\"less scary than reading to a person\").",
+   "🧱 <b>Look for evidence in THAT paragraph.</b> Paragraph 2 has the librarian's quote: students \"often ask to read more.\"",
+   "❌ <b>Cross out evidence for OTHER ideas.</b> <span class='x'>A</span> and <span class='x'>D</span> answer the allergy worry. <span class='x'>B</span> is about cost.",
+   "<span class='ok'>✅ C directly proves that dogs help readers!</span>"
+  ],
+  checks:[
+   {q:"What is Marcus's CLAIM?",o:["Dogs are better than cats.","The school should start a reading dog program.","Some students have allergies.","The library is too quiet."],a:1,hint:"Look for the word \"should\" in paragraph 1.",why:"The claim is in the first sentence: the school should start a reading dog program."},
+   {q:"What REASON does Marcus give in paragraph 3?",o:["Therapy dogs help people feel calm.","Dogs are cheap.","Students with allergies can stay away.","Dogs won't laugh at readers."],a:0,hint:"Paragraph 3 starts with \"Second.\" What is the second reason?",why:"Paragraph 3's reason: therapy dogs help people feel calm."},
+   {q:"Which piece of evidence supports the reason in paragraph 3?",o:["\"Researchers have found that spending time with friendly dogs can lower stress.\"","\"A dog won't laugh or correct you.\"","\"Let's bring the dogs to our library!\"","\"Some people worry about allergies.\""],a:0,hint:"Look for research inside paragraph 3.",why:"The research about lowering stress proves dogs help people feel calm."},
+   {q:"Where does Marcus restate his claim?",o:["Only in paragraph 2","In the last paragraph: \"Let's bring the dogs to our library!\"","In paragraph 4","He never restates it."],a:1,hint:"Arguments often repeat the claim at the end.",why:"The conclusion restates the claim as a call to action."}
+  ]},
+{ id:"w2", emoji:"🔍", title:"Types of Reasoning & Strong Evidence", color:"#0d9488", std:"ELA.6.R.2.4", badge:"🔍", badgeName:"Reasoning Ranger",
+  stdText:"Track the development of an argument, identifying the types of reasoning used.",
+  ican:"I can identify the types of reasoning an author uses and judge whether evidence is relevant and strong.",
+  texts:["petB"],
+  teach:`<p>Authors support reasons with different <b>types of reasoning</b>. Tap each card to flip it.</p>
+  <div class="forms">
+   <div class="fcard" style="background:#0d9488"><div class="in"><div class="fr"><div class="fe">📊</div><div class="fn">Facts & Statistics</div><small>Tap to flip</small></div><div class="bk">Numbers and facts that can be proven. <i>"Researchers have found that dogs lower stress."</i></div></div></div>
+   <div class="fcard" style="background:#2563eb"><div class="in"><div class="fr"><div class="fe">🧑‍🏫</div><div class="fn">Expert Opinion</div><small>Tap to flip</small></div><div class="bk">What a real expert on the topic says. <i>"Our librarian, Ms. Okafor, says..."</i></div></div></div>
+   <div class="fcard" style="background:#ea580c"><div class="in"><div class="fr"><div class="fe">🔗</div><div class="fn">Cause & Effect</div><small>Tap to flip</small></div><div class="bk">Shows how one thing leads to another. <i>"Less stress <b>means</b> students can focus better."</i></div></div></div>
+   <div class="fcard" style="background:#ca8a04"><div class="in"><div class="fr"><div class="fe">📖</div><div class="fn">Example / Anecdote</div><small>Tap to flip</small></div><div class="bk">A specific example or short story. <i>"At Lincoln School, a shy reader named Max..."</i></div></div></div>
+  </div>
+  <h3>💪 Is the evidence STRONG?</h3>
+  <div class="seq" id="strSeq">
+   <div class="rv rvbox">✅ <b>Relevant:</b> Does it connect directly to the reason?</div>
+   <div class="rv rvbox">✅ <b>Credible:</b> Does it come from a trustworthy source (research, an expert)?</div>
+   <div class="rv rvbox">✅ <b>Specific:</b> Does it give real details, not just opinions?</div>
+   <div class="rv rvbox" style="background:#fee2e2">❌ <b>Weak evidence:</b> off-topic facts, \"my friend said,\" or feelings with no proof</div>
+  </div>
+  <button class="say" data-replay="#strSeq">▶ Replay</button>
+  <p>🔎 <b>FAST question words:</b> <i>"What type of reasoning does the author use in paragraph 3?"</i> • <i>"Which evidence is LEAST relevant to the claim?"</i></p>`,
+  mq:"What type of reasoning does Marcus use in paragraph 3?<br>A. A personal story about his own dog<br>B. Research plus cause and effect: dogs lower stress, so students focus better<br>C. An expert's opinion<br>D. A comparison of two schools",
+  steps:[
+   "📖 <b>Reread the paragraph.</b> \"Researchers have found... lower stress. Less stress <b>means</b> students can focus better.\"",
+   "🔎 <b>Look for clue words.</b> \"Researchers have found\" = <b>research/facts</b>. \"Means\" connects a cause to an effect = <b>cause and effect</b>.",
+   "🃏 <b>Match to the reasoning cards.</b> Facts ✅ Cause & Effect ✅. No expert is named in this paragraph, and there's no story.",
+   "<span class='x'>A</span>: no personal story. <span class='x'>C</span>: the expert is in paragraph 2. <span class='x'>D</span>: no comparison. <span class='ok'>✅ B!</span>"
+  ],
+  checks:[
+   {q:"What type of reasoning does Marcus use in paragraph 2 when he mentions Ms. Okafor?",o:["Expert opinion","Statistics","Cause and effect","Personal anecdote"],a:0,hint:"Who is Ms. Okafor, and why does her opinion matter?",why:"Ms. Okafor is the librarian, an expert on students and reading."},
+   {q:"Which sentence shows CAUSE AND EFFECT reasoning?",o:["\"Less stress means students can focus better on reading.\"","\"A dog won't laugh or correct you.\"","\"Some people worry about allergies.\"","\"Our school should start a reading dog program.\""],a:0,hint:"Look for a word that connects one thing to its result.",why:"\"Means\" shows less stress leads to better focus."},
+   {q:"Which piece of evidence would be LEAST relevant to Marcus's claim?",o:["A study showing kids read longer to dogs","A quote from a reading teacher about the program","A fact that golden retrievers have thick, fluffy fur","A survey of students who liked reading to dogs"],a:2,hint:"Which fact doesn't connect to reading or students?",why:"A dog's fur has nothing to do with whether the program helps readers."},
+   {q:"Which piece of evidence would make Marcus's argument STRONGEST?",o:["\"My cousin likes dogs.\"","\"A study of 500 students found that reading scores rose after a reading dog program.\"","\"Dogs are cute.\"","\"I think it's a good idea.\""],a:1,hint:"Strong evidence is specific and comes from research.",why:"A specific study with many students is credible, relevant, and specific."}
+  ]},
+{ id:"w3", emoji:"🥊", title:"Counterclaims & Rebuttals", color:"#ea580c", std:"ELA.6.R.2.4", badge:"🥊", badgeName:"Rebuttal Ruler",
+  stdText:"Track the development of an argument, identifying the types of reasoning used.",
+  ican:"I can find a counterclaim and explain how the author's rebuttal strengthens the argument.",
+  texts:["petB"],
+  teach:`<p>Strong arguments admit that <b>some people disagree</b>, then answer them. Watch how it works:</p>
+  <div class="chain" id="chain">
+   <div class="lnk" style="background:#ea580c;animation-delay:.1s"><span class="em">🙋</span>COUNTERCLAIM<br><small>"Some people worry that..."</small></div>
+   <div class="arrow" style="animation-delay:.6s">➜</div>
+   <div class="lnk" style="background:#2563eb;animation-delay:1s"><span class="em">🔁</span>TURN<br><small>"However," "But," "On the other hand"</small></div>
+   <div class="arrow" style="animation-delay:1.5s">➜</div>
+   <div class="lnk" style="background:#16a34a;animation-delay:1.9s"><span class="em">🥊</span>REBUTTAL<br><small>The author's answer: a fact, a solution, or a reason it's wrong</small></div>
+  </div>
+  <button class="say" id="playChain">▶ Replay</button>
+  <p><b>Why include it?</b> It shows the author has thought about other views, which makes them seem <b>fair and trustworthy</b>, and it makes the argument <b>stronger</b>.</p>
+  <p>🔎 <b>FAST question words:</b> <i>"How does the author respond to the counterclaim?"</i> • <i>"Why does the author include paragraph 4?"</i></p>`,
+  mq:"How does Marcus respond to the counterclaim about allergies?<br>A. He ignores it.<br>B. He says people with allergies are wrong.<br>C. He offers a solution: students can opt out, and dogs can stay in one room.<br>D. He agrees the program should be canceled.",
+  steps:[
+   "🙋 <b>Find the counterclaim.</b> Look for \"Some people...\" Paragraph 4: \"Some people worry about <b>allergies</b>.\"",
+   "🔁 <b>Find the turn word.</b> \"<b>However</b>,\" tells me the rebuttal is coming next.",
+   "🥊 <b>Read the rebuttal.</b> Students with allergies can choose not to take part, and dogs can visit in one room. That's a <b>solution</b>.",
+   "<span class='x'>A</span>: he doesn't ignore it. <span class='x'>B</span>: he never says they're wrong. <span class='x'>D</span>: he still wants the program. <span class='ok'>✅ C!</span>"
+  ],
+  checks:[
+   {q:"Which sentence states the COUNTERCLAIM in Marcus's essay?",o:["\"Some people worry about allergies.\"","\"A dog won't laugh or correct you.\"","\"Let's bring the dogs to our library!\"","\"Therapy dogs help people feel calm.\""],a:0,hint:"A counterclaim is what the OTHER side thinks.",why:"The worry about allergies is the other side's concern."},
+   {q:"Which word signals that the rebuttal is coming?",o:["First","However","Second","Let's"],a:1,hint:"Look for a turn word right after the counterclaim.",why:"\"However\" turns from the counterclaim to Marcus's answer."},
+   {q:"Why does including the counterclaim and rebuttal make Marcus's argument STRONGER?",o:["It makes the essay longer.","It shows he considered other views and solved the concern, which makes him seem fair.","It proves dogs never cause allergies.","It changes his claim."],a:1,hint:"How does answering the other side make a writer seem?",why:"Addressing concerns makes the writer seem fair and the argument stronger."},
+   {q:"\"Some people say homework should be banned. However, a little homework helps students practice skills they learned in class.\" What is the REBUTTAL?",o:["Homework should be banned.","A little homework helps students practice skills learned in class.","Some people say...","There is no rebuttal."],a:1,hint:"The rebuttal comes after \"However.\"",why:"The rebuttal is the author's answer after \"However.\""}
+  ]},
+{ id:"w4", emoji:"🎤", title:"Persuasion Power: Appeals & Fallacies", color:"#dc2626", std:"ELA.6.R.2.4", badge:"🔺", badgeName:"Appeal Expert",
+  stdText:"Track the development of an argument, identifying the types of reasoning used. (Rhetorical appeals connect to ELA.6.R.3.4.)",
+  ican:"I can identify ethos, pathos, and logos, and spot sneaky reasoning (fallacies) that weakens an argument.",
+  texts:["speech"],
+  teach:`<p>Persuasive writers use <b>rhetorical appeals</b> to convince you. Tap each corner of the triangle.</p>
+  <div class="tri"><svg viewBox="0 0 300 250" class="trisvg"><polygon points="150,20 280,230 20,230" fill="#fef2f2" stroke="#dc2626" stroke-width="5"/><text x="150" y="160" text-anchor="middle" font-size="18" font-weight="800" fill="#7f1d1d">PERSUADE</text></svg>
+   <button class="corner c1" data-app="ethos">🧑‍⚖️<br>ETHOS</button><button class="corner c2" data-app="pathos">❤️<br>PATHOS</button><button class="corner c3" data-app="logos">🧠<br>LOGOS</button></div>
+  <div class="huntx" id="appx">👆 Tap a corner</div>
+  <h3>🗂️ Watch the Appeal Sorter</h3>
+  <div class="sorter" id="sorter">
+   <div class="chips"><div class="chip s1">"As a doctor for 20 years, I recommend..."</div><div class="chip s2">"Imagine how lonely that puppy feels..."</div><div class="chip s3">"9 out of 10 students finished faster."</div></div>
+   <div class="bins"><div class="bin">🧑‍⚖️ Ethos<div class="slot" id="b1"></div></div><div class="bin">❤️ Pathos<div class="slot" id="b2"></div></div><div class="bin">🧠 Logos<div class="slot" id="b3"></div></div></div>
+  </div>
+  <button class="say" id="sortBtn">▶ Sort the Appeals</button>
+  <h3>🐍 Watch Out for Sneaky Reasoning (Fallacies)</h3>
+  <p><b>Bandwagon:</b> "Everyone thinks so, so it's true." • <b>Ad hominem:</b> attacking the person instead of the idea • <b>Either/or:</b> pretending there are only two choices. Fallacies <b>weaken</b> an argument!</p>
+  <p>✅ <b>Memory trick:</b> <b>E</b>thos = <b>E</b>xpert (trust) • <b>P</b>athos = <b>P</b>assion (feelings) • <b>L</b>ogos = <b>L</b>ogic (facts)</p>`,
+  mq:"Which sentence from Ava's speech uses an appeal to EMOTION (pathos)?<br>A. Sentence 2: \"The library closes at 3:00.\"<br>B. Sentence 3: \"140 students signed a petition.\"<br>C. Sentence 4: \"Imagine a sixth grader with no computer at home, standing outside a locked door...\"<br>D. Sentence 6: \"Staying open one more hour would cost less than one new set of textbooks.\"",
+  steps:[
+   "❤️ <b>Remember what pathos looks like.</b> It makes you <b>feel</b> something. Clue words: <i>imagine, picture</i>, sad or scary details.",
+   "🔍 <b>Test each choice: trust, feeling, or facts?</b> A: a fact (logos). B: a number (logos). D: a cost comparison (logos).",
+   "💭 <b>Read C and notice how you feel.</b> \"Imagine\" + a student alone at a locked door makes me feel <b>sorry</b> and <b>worried</b>.",
+   "<span class='ok'>✅ C is pathos!</span> A, B, and D all use facts or numbers, which is logos."
+  ],
+  checks:[
+   {q:"Which appeal does sentence 1 use? (\"As your student council president for two years and a library volunteer...\")",o:["Ethos","Pathos","Logos","Bandwagon"],a:0,hint:"Is Ava showing why we should trust her?",why:"She shares her experience to build trust: ethos."},
+   {q:"Which appeal does sentence 3 use? (\"Last month, 140 students signed a petition...\")",o:["Pathos","Logos","Ethos","Ad hominem"],a:1,hint:"Does it use a number?",why:"A specific number as evidence is logos."},
+   {q:"Why does Ava mention that Mrs. Patel has worked in libraries for 20 years?",o:["To make listeners laugh","To build credibility by showing an experienced expert agrees (ethos)","To give a cost (logos)","To make listeners sad (pathos)"],a:1,hint:"An expert's experience makes the argument more...?",why:"An experienced expert agreeing builds trust: ethos."},
+   {q:"How does sentence 7 (\"Don't let our classmates fall behind...\") try to persuade?",o:["With statistics","By appealing to emotion, making listeners worry about classmates","By showing Ava is an expert","With a fallacy"],a:1,hint:"How does \"fall behind\" make you feel?",why:"It stirs worry and caring: pathos."},
+   {q:"Which sentence would WEAKEN Ava's argument because it is a fallacy?",o:["\"Mrs. Patel supports longer hours.\"","\"Everybody wants the library open later, so it must be the right choice.\"","\"The library closes at 3:00.\"","\"140 students signed a petition.\""],a:1,hint:"Which one uses \"everybody\" thinking without proof?",why:"That's bandwagon: popularity doesn't prove something is right."}
+  ]}
+];
+
+const BOSS_TEXTS=["late"];
+const BOSS = [
+ {q:"What is Jordan's CLAIM?",o:["Sports practices are too long.","Middle schools should start at 9:00 a.m. instead of 7:30 a.m.","Kids should go to bed earlier.","Math is hard in the morning."],a:1,std:"w1"},
+ {q:"Which piece of evidence BEST supports the claim that a later start would help students learn?",o:["\"When students are tired, they have trouble focusing, so their grades can suffer.\"","\"Practices could be moved to early evening.\"","\"Everyone at my lunch table agrees.\"","\"Let's give students the rest they need!\""],a:0,std:"w1"},
+ {q:"What type of reasoning does paragraph 3 use when it says \"Doctors recommend that kids ages 6 to 12 get 9 to 12 hours of sleep\"?",o:["Personal anecdote","Facts from experts","Bandwagon","Either/or"],a:1,std:"w2"},
+ {q:"\"When students are tired, they have trouble focusing, so their grades can suffer.\" What type of reasoning is this?",o:["Cause and effect","Comparison","Ad hominem","Expert opinion"],a:0,std:"w2"},
+ {q:"Which sentence states the COUNTERCLAIM?",o:["\"Some people argue that a later start would make after-school sports end too late.\"","\"Picture a sixth grader trying to solve math problems...\"","\"Middle schools should start at 9:00 a.m.\"","\"Let's give students the rest they need!\""],a:0,std:"w3"},
+ {q:"How does Jordan respond to the counterclaim?",o:["By ignoring it","By offering solutions: move practices to early evening or weekends","By saying sports are not important","By agreeing school should start early"],a:1,std:"w3"},
+ {q:"Which rhetorical appeal does paragraph 2 use? (\"As a member of our school's health club who has read dozens of articles...\")",o:["Ethos","Pathos","Logos","Hyperbole"],a:0,std:"w4"},
+ {q:"Which paragraph uses PATHOS, an appeal to emotion?",o:["Paragraph 1","Paragraph 3","Paragraph 4: \"Picture a sixth grader... with heavy eyelids, fighting to stay awake.\"","Paragraph 5"],a:2,std:"w4"},
+ {q:"Which sentence WEAKENS Jordan's argument because it uses a fallacy?",o:["\"Doctors recommend that kids ages 6 to 12 get 9 to 12 hours of sleep.\"","\"Everyone at my lunch table agrees that school starts too early, so it must be true.\"","\"Practices could be moved to early evening.\"","\"Middle schools should start at 9:00 a.m.\""],a:1,std:"w4"},
+ {q:"What is the PURPOSE of the last paragraph, \"Let's give students the rest they need to succeed!\"?",o:["To introduce a counterclaim","To restate the claim as a call to action","To give a statistic","To describe a problem with sports"],a:1,std:"w1"}
+];
+
+const SHOP = [
+ {e:"🦊",n:"Fox",c:15},{e:"🐼",n:"Panda",c:15},{e:"🦉",n:"Wise Owl",c:25},{e:"🐉",n:"Dragon",c:40},
+ {e:"🦄",n:"Unicorn",c:40},{e:"🤖",n:"Robot",c:50},{e:"🦁",n:"Lion",c:60},{e:"🐙",n:"Octopus",c:60},{e:"🦖",n:"T-Rex",c:70},{e:"👑",n:"Royal Reader",c:90}
+];
+const TITLES=[[0,"Rookie Reader"],[60,"Skill Seeker"],[140,"Skill Builder"],[220,"Skill Champion"],[300,"Skill Legend"]];
+
+/* =================== STATE =================== */
+const KEY="tut_r24_v1";
+if(new URLSearchParams(location.search).get("reset")==="1"){try{localStorage.removeItem(KEY)}catch(e){}}
+let S={name:"",view:"start",xp:0,coins:0,streak:0,best:0,avatar:"🧑‍🎓",owned:[],ans:{},hints:{},step:{},badges:[],boss:{},bossDone:false};
+try{const r=localStorage.getItem(KEY); if(r) S=Object.assign(S,JSON.parse(r));}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+/* =================== SPEECH =================== */
+let voice=null;
+function pickVoice(){const v=speechSynthesis.getVoices(); voice=v.find(x=>x.name==="Google US English")||v.find(x=>x.lang==="en-US"&&/samantha|female/i.test(x.name))||v.find(x=>x.lang==="en-US")||null;}
+if("speechSynthesis" in window){pickVoice(); speechSynthesis.onvoiceschanged=pickVoice;}
+function speak(t){ if(!("speechSynthesis" in window))return; speechSynthesis.cancel();
+  t=t.replace(/ELA\.[A-Z0-9.]+/g,"").replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/gu,"").replace(/[➜▶✦]/g,"").replace(/\s+/g," ").trim();
+  const chunks=t.match(/[^.!?]+[.!?"]*\s*/g)||[t];
+  chunks.forEach(c=>{const u=new SpeechSynthesisUtterance(c); if(voice)u.voice=voice; u.lang="en-US"; u.rate=.95; speechSynthesis.speak(u);});
+}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-say]"); if(!b)return; const el=document.querySelector(b.dataset.say); if(el) speak(el.innerText);});
+
+/* =================== HELPERS =================== */
+const $=s=>document.querySelector(s);
+const V=()=>$("#view");
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+function order(len,seed){const a=[...Array(len).keys()]; let x=seed*7919+13; for(let i=len-1;i>0;i--){x=(x*9301+49297)%233280; const j=Math.floor(x/233280*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a;}
+function seedOf(k){let h=0; for(const ch of k) h=(h*31+ch.charCodeAt(0))%100000; return h;}
+function level(){return Math.floor(S.xp/60)+1}
+function title(){let t=TITLES[0][1]; TITLES.forEach(([x,n])=>{if(S.xp>=x)t=n}); return t;}
+function hud(){
+  $("#hName").textContent=S.name||"Reader"; $("#hAv").textContent=S.avatar; $("#hTitle").textContent=title();
+  $("#hLvl").textContent=`Level ${level()} • ${S.xp} XP`; $("#hXp").style.width=((S.xp%60)/60*100)+"%";
+  $("#hCoins").textContent=S.coins; $("#hStreak").textContent=S.streak; $("#sCoins").textContent=S.coins;
+}
+function floatText(txt,x,y,color){const d=document.createElement("div"); d.className="float"; d.textContent=txt; d.style.left=(x||innerWidth/2)+"px"; d.style.top=(y||innerHeight/2)+"px"; if(color)d.style.color=color; document.body.appendChild(d); setTimeout(()=>d.remove(),1300);}
+function reward(xp,coins,x,y){S.xp+=xp; S.coins+=coins; floatText(`+${xp} XP`,x-40,y-20); if(coins) setTimeout(()=>floatText(`+${coins} 🪙`,x+20,y-10,"#ca8a04"),200); save(); hud();}
+function worldDone(i){const w=WORLDS[i]; return w.checks.every((c,j)=>S.ans[w.id+"-"+j]!==undefined && S.ans[w.id+"-"+j].done);}
+function unlocked(i){return i===0 || worldDone(i-1);}
+function articleHTML(key,open,sfx){const t=TEXTS[key]; const id="ar-"+key+(sfx||""); let n=0;
+  const body=t.blocks.map(b=>{ if(b.h) return `<h4 class="feat feat-heading">${b.h}</h4>`; if(b.p){n++; return `<p><span class="pn">${n}</span>${b.p}</p>`;} if(b.l){n++; return `<div class="pline"><span class="ln">${n}</span>${b.l}</div>`;}
+    if(b.cap) return `<div class="feat feat-caption">📷 <i>${b.cap}</i></div>`; if(b.side) return `<div class="feat feat-side">${b.side}</div>`; if(b.raw) return b.raw; return "";}).join("");
+  return `<details ${open?"open":""}><summary>📰 ${t.title} (tap to open/close)</summary>
+  <button class="say" data-say="#${id}">🔊 Read the Article to Me</button>
+  <div class="article" id="${id}"><div class="aby">${t.by}</div><h3 class="atitle">${t.title}</h3>${body}</div></details>`;}
+function textsHTML(keys,open,sfx){return keys.map(k=>articleHTML(k,open,sfx)).join("");}
+
+/* =================== VIEWS =================== */
+function go(v){S.view=v; save(); render(); window.scrollTo({top:0,behavior:"smooth"});}
+function render(){
+  hud(); speechSynthesis&&speechSynthesis.cancel();
+  if(S.view==="start") return vStart();
+  if(S.view==="map") return vMap();
+  if(S.view.startsWith("w")) return vWorld(+S.view.slice(1)-1);
+  if(S.view==="boss") return vBoss();
+  if(S.view==="results") return vResults();
+}
+function vStart(){
+  V().innerHTML=`<div class="card">
+   <h2>Welcome, Reader! 👋</h2>
+   <button class="say" data-say="#intro">🔊 Read to Me</button>
+   <div id="intro"><p>In this tutorial you will review how to track an <b>argument</b>: the claim, reasons, evidence, types of reasoning, counterclaims and rebuttals, plus <b>rhetorical appeals</b> (ethos, pathos, logos) and sneaky <b>fallacies</b>.</p>
+   <p>In each level you will: 🎯 read the <b>I Can</b> goal, 📚 <b>learn</b> the skill with animations, 👣 <b>watch me model</b> the skill step by step, then ✅ <b>check</b> your understanding. At the end, battle the <b>FAST Boss</b>!</p></div>
+   <div class="dir"><b>📱 iPad Directions:</b><ol>
+    <li>✍️ Type your <b>first name and last initial</b>.</li>
+    <li>🔊 Tap <b>Read to Me</b> on anything to hear it. Use headphones!</li>
+    <li>🗺️ Complete the levels <b>in order</b>. Each level unlocks the next.</li>
+    <li>💡 Stuck on a check? Tap <b>Hint</b>. If you miss it, you get a <b>teaching tip and one more try</b>.</li>
+    <li>⚔️ The Boss Battle is <b>one try per question</b>, just like the real test.</li>
+    <li>💾 Your work saves automatically. 📸 Screenshot your results and upload them to Canvas.</li></ol></div>
+   <div class="dir help"><b>🙋 Working on your own today!</b> If you get stuck, try these steps before asking anyone:
+    <ol><li>🔊 Listen again with <b>Read to Me</b>.</li><li>👣 Rewatch the <b>Watch Me Model</b> steps.</li><li>📰 Go back to the article and find the paragraph or text feature.</li><li>💡 Use a <b>Hint</b>. Every answer explains <b>why</b>, so you learn either way!</li></ol></div>
+   <h3>🎮 How to Earn Rewards</h3>
+   <p>⭐ <b>+10 XP and +5 🪙</b> for a correct first try • 💡 <b>+7 XP</b> after a hint • 🔁 <b>+5 XP</b> on a second try • 🔥 Build streaks! • 🏅 Earn a <b>badge</b> for each level • 🛒 Spend coins on <b>avatars</b> in the Shop!</p>
+   <p><b>Your name:</b><br><input type="text" id="nameIn" placeholder="First name + last initial" value="${esc(S.name)}" autocomplete="off"></p>
+   <button class="big" id="startBtn">🚀 Start My Quest!</button></div>`;
+  $("#nameIn").oninput=e=>{S.name=e.target.value; save(); hud();};
+  $("#startBtn").onclick=()=>{ if(!S.name.trim()){ $("#nameIn").classList.add("shake"); $("#nameIn").focus(); setTimeout(()=>$("#nameIn").classList.remove("shake"),400); return;} go("map"); };
+}
+function vMap(){
+  const allDone=WORLDS.every((w,i)=>worldDone(i));
+  V().innerHTML=`<div class="card"><h2>🗺️ Quest Map</h2>
+   <p>Tap a level to play. Finish each level to unlock the next one!</p>
+   <div class="map">${WORLDS.map((w,i)=>{const lock=!unlocked(i), done=worldDone(i);
+     const firsts=w.checks.filter((c,j)=>S.ans[w.id+"-"+j]?.first).length;
+     const stars=done?(firsts===w.checks.length?"⭐⭐⭐":firsts>=w.checks.length-1?"⭐⭐":"⭐"):"";
+     return `<button class="node ${lock?"locked":""}" data-world="${i}" style="background:${w.color}">
+      ${lock?'<span class="lk">🔒</span>':done?'<span class="lk">✅</span>':''}
+      <span class="e" style="animation-delay:${i*.3}s">${w.emoji}</span><div class="t">Level ${i+1}: ${w.title}</div><div class="s">${w.std}</div><span class="stars3">${stars}</span></button>`;}).join("")}
+     <button class="node ${allDone?"":"locked"}" data-boss style="background:#7f1d1d">${allDone?(S.bossDone?'<span class="lk">✅</span>':''):'<span class="lk">🔒</span>'}
+      <span class="e">🐍</span><div class="t">FAST Boss Battle</div><div class="s">${BOSS.length} questions • One try each</div></button>
+   </div>
+   <h3 style="margin-top:16px">🏅 My Badges</h3>
+   <div class="blist">${WORLDS.map(w=>`<span class="${S.badges.includes(w.id)?"":"no"}">${w.badge} ${w.badgeName}</span>`).join("")}<span class="${S.bossDone?"":"no"}">🏆 Boss Slayer</span></div>
+   ${S.bossDone?'<button class="big alt" data-go="results">🏆 See My Results</button>':''}</div>`;
+}
+function stepsBar(i,step){const names=["🎯 Goal","📚 Learn","👣 Watch Me Model","✅ Check","🏅 Badge"];
+  return `<div class="steps">${names.map((n,k)=>`<span class="${k===step?"on":k<step?"done":""}">${n}</span>`).join("")}</div>`;}
+function vWorld(i){
+  const w=WORLDS[i]; if(!unlocked(i)) return go("map");
+  let step=S.step[w.id]??0; if(worldDone(i)&&step<4) step=3;
+  let body="";
+  const hdr=`<div class="card" style="border-top:10px solid ${w.color}"><div style="font-size:14px;font-weight:800;color:${w.color}">LEVEL ${i+1}</div><h2>${w.emoji} ${w.title}</h2>${stepsBar(i,step)}</div>`;
+  if(step===0){
+    body=`<div class="card"><h3>🎯 Today's Goal</h3>
+     <div id="goal"><div class="ican"><span class="ic">🎯</span><div><b>I can</b> ${esc(w.ican.replace(/^I can /,""))}</div></div>
+     <p><span class="stdtag">Florida B.E.S.T. ${w.std}</span> ${esc(w.stdText)}</p></div>
+     <button class="say" data-say="#goal">🔊 Read to Me</button><br>
+     <button class="big" data-step="1">Let's Learn! ➜</button></div>`;
+  } else if(step===1){
+    body=`<div class="card"><h3>📚 Learn It</h3><button class="say" data-say="#teach">🔊 Read to Me</button><div class="teach" id="teach">${w.teach}</div>
+     <button class="big alt" data-step="0">⬅ Back</button><button class="big" data-step="2">Next: Watch Me Model ➜</button></div>`;
+  } else if(step===2){
+    body=`<div class="card"><h3>👣 Watch Me Model: "I Do"</h3>
+     <p>Watch how a strong reader solves a FAST question <b>step by step</b>. Tap <b>Show Next Step</b> and listen to each one.</p>
+     ${textsHTML(w.texts,true,"m")}
+     <div class="mq"><div class="mqlbl">📝 Model Question</div><div id="mqtext">${w.mq}</div></div>
+     <div id="msteps">${w.steps.map((st,k)=>`<div class="mstep${k===0?" show":""}" data-ms="${k}"><div class="msn">Step ${k+1}</div><div class="msb">${st}</div></div>`).join("")}</div>
+     <button class="big alt" id="nextMs">👣 Show Next Step</button>
+     <button class="say" id="sayMs">🔊 Read This Step</button>
+     <div id="msDone" class="${w.steps.length<=1?"":"hidden"}"><div class="dir" style="background:#dcfce7;border-color:#22c55e">✅ <b>Now it's YOUR turn!</b> Use the same steps on the check questions.</div></div>
+     <br><button class="big alt" data-step="1">⬅ Back</button><button class="big" data-step="3" id="toCheck">I'm Ready to Check! ➜</button></div>`;
+  } else if(step===3){
+    body=`<div class="card"><h3>✅ Check Your Understanding</h3><p>${w.texts.length?"Use the text"+(w.texts.length>1?"s":"")+" to help you.":"Use what you just learned, and reread the Learn It page if you need to."} Tap 💡 Hint if you need it!</p>
+     ${textsHTML(w.texts,false,"c")}
+     <div id="checks">${w.checks.map((c,j)=>qHTML(w,j)).join("")}</div>
+     <button class="big alt" data-step="2">⬅ Review the Model</button>
+     <button class="big" data-step="4" ${worldDone(i)?"":"disabled"} id="toBadge">${worldDone(i)?"Claim My Badge! 🏅":"Answer all checks to continue"}</button></div>`;
+  } else {
+    if(!S.badges.includes(w.id)){S.badges.push(w.id); reward(20,10,innerWidth/2,innerHeight/2); save(); setTimeout(confetti,200);}
+    const firsts=w.checks.filter((c,j)=>S.ans[w.id+"-"+j]?.first).length;
+    body=`<div class="card badgepop"><div class="b">${w.badge}</div><h2>You earned the ${w.badgeName} badge!</h2>
+      <p>First-try correct: <b>${firsts} / ${w.checks.length}</b> • Bonus: +20 XP, +10 🪙</p>
+      <div class="ican" style="justify-content:center"><span class="ic">✅</span><div><b>I can</b> ${esc(w.ican.replace(/^I can /,""))}</div></div>
+      ${i<WORLDS.length-1?`<button class="big" data-world="${i+1}">Next Level ➜</button>`:`<button class="big" data-boss style="background:#b91c1c;box-shadow:0 5px 0 #7f1d1d">⚔️ Face the FAST Boss!</button>`}
+      <button class="big alt" data-go="map">🗺️ Map</button></div>`;
+  }
+  V().innerHTML=hdr+body;
+  wireTeach(); wireModel();
+}
+function qHTML(w,j){
+  const c=w.checks[j], k=w.id+"-"+j, a=S.ans[k]||{tries:[],done:false}, hint=S.hints[k], ord=order(c.o.length,seedOf(k)), cl=String.fromCharCode(65+ord.indexOf(c.a));
+  let h=`<div class="q" id="q-${k}"><div class="qt">${j+1}. ${esc(c.q)}</div>
+   <button class="say" data-say="#q-${k} .qt">🔊 Read Question</button><button class="say" data-say="#q-${k} .opts">🔊 Read Choices</button>
+   ${!a.done&&!hint?`<button class="hint" data-hint="${k}">💡 Hint</button>`:""}
+   ${hint?`<div class="hintbox">💡 ${esc(c.hint)}</div>`:""}
+   <div class="opts">${ord.map((n,pos)=>{const o=c.o[n]; let cls="opt"; if(a.tries.includes(n)) cls+= n===c.a?" right":" wrong"; else if(a.done&&n===c.a) cls+=" reveal";
+     return `<button class="${cls}" data-q="${k}" data-n="${n}" ${a.done||a.tries.includes(n)?"disabled":""}>${String.fromCharCode(65+pos)}. ${esc(o)}</button>`}).join("")}</div>`;
+  if(a.done){ const ok=a.tries.includes(c.a);
+    h+=`<div class="fb ${ok?"good":"bad"}">${ok?(a.first?"🌟 Correct on the first try!":"✅ You got it!"):"📘 The correct answer is <b>"+cl+"</b>."} ${esc(c.why)}</div>`;
+  } else if(a.tries.length===1){
+    h+=`<div class="fb try">🤔 Not quite, but you've got one more try! <b>Teaching tip:</b> ${esc(c.hint)}</div>`;
+  }
+  return h+"</div>";
+}
+function wireTeach(){
+  /* ---- generic sequential reveal ---- */
+  document.querySelectorAll(".seq").forEach(q=>{ setTimeout(()=>q.classList.add("go"),400); });
+  document.querySelectorAll("[data-replay]").forEach(b=>b.onclick=()=>{ const q=document.querySelector(b.dataset.replay); q.classList.remove("go"); void q.offsetWidth; q.classList.add("go"); speak(q.innerText); });
+  /* ---- generic tap-to-highlight ---- */
+  document.querySelectorAll(".hlwrap").forEach(w=>{ w.querySelectorAll("[data-hl]").forEach(b=>b.onclick=()=>{ const k=b.dataset.hl;
+    w.querySelectorAll("[data-hlk]").forEach(x=>x.classList.toggle("glow",x.dataset.hlk===k)); w.querySelectorAll("[data-hl]").forEach(x=>x.classList.toggle("on",x===b));
+    const out=w.querySelector(".hlx"); if(out){ out.innerHTML=b.dataset.tip; speak(out.innerText);} }); });
+  /* ---- chain (auto) ---- */
+  if($("#chain")) setTimeout(()=>$("#chain")&&$("#chain").classList.add("play"),500);
+  const pcx=$("#playChain"); if(pcx) pcx.onclick=()=>{const ch=$("#chain"); ch.classList.remove("play"); void ch.offsetWidth; ch.classList.add("play"); speak(ch.innerText);};
+  /* ---- umbrella ---- */
+  const dbx=$("#dropBtn"); if(dbx) dbx.onclick=()=>{const u=$("#umb"); u.classList.remove("rain"); void u.offsetWidth; u.classList.add("rain"); speak(u.innerText+". The detail that does not fit gets blown away.");};
+  if($("#umb")) setTimeout(()=>$("#umb")&&$("#umb").classList.add("rain"),600);
+  /* ---- house ---- */
+  const hbx=$("#houseBtn"); if(hbx) hbx.onclick=()=>{const h=$("#house"); h.classList.remove("built"); void h.offsetWidth; h.classList.add("built"); speak("First the foundation: evidence. Next the pillars: reasons. Last the roof: the claim.");};
+  if($("#house")) setTimeout(()=>$("#house")&&$("#house").classList.add("built"),600);
+  /* ---- feature hunt ---- */
+  const huntT={heading:"📌 <b>Heading:</b> a title for a section. It tells you what that part is <b>about</b>, so you can find information fast.",
+   diagram:"📊 <b>Diagram:</b> a picture with labels or steps. It helps you <b>see</b> how something works or what order things happen in.",
+   caption:"💬 <b>Caption:</b> words under a picture or diagram. It explains the picture or adds a <b>new detail</b>.",
+   sidebar:"⚡ <b>Sidebar:</b> a box off to the side with <b>bonus facts</b> related to the topic.",
+   bold:"🅱️ <b>Bold word:</b> an important vocabulary word the author wants you to <b>notice</b>."};
+  document.querySelectorAll("[data-hunt]").forEach(b=>b.onclick=()=>{const f=b.dataset.hunt; document.querySelectorAll("#mini [data-f]").forEach(x=>x.classList.toggle("glow",x.dataset.f===f));
+    document.querySelectorAll("[data-hunt]").forEach(x=>x.classList.toggle("on",x===b)); $("#huntx").innerHTML=huntT[f]; speak($("#huntx").innerText);});
+  /* ---- haiku syllable counter ---- */
+  const sbx=$("#sylBox");
+  if(sbx){ const lines=JSON.parse(sbx.dataset.lines);
+    sbx.innerHTML=lines.map((l,i)=>`<div style="display:flex;align-items:center;gap:8px"><span class="sylcount" id="sc${i}">0</span><div class="syl">${l.map(x=>`<span>${x}</span>`).join("")}</div></div>`).join("");
+    $("#countSyl").onclick=()=>{ const sp=[...sbx.querySelectorAll(".syl span")]; sp.forEach(x=>x.classList.remove("lit")); lines.forEach((l,i)=>$("#sc"+i).textContent="0");
+      let t=0; lines.forEach((l,i)=>{ l.forEach((x,k)=>{ setTimeout(()=>{ if(!sbx.isConnected) return; sbx.querySelectorAll(".syl")[i].children[k].classList.add("lit"); $("#sc"+i).textContent=k+1; },t+=320);}); t+=300; });
+      setTimeout(()=>speak("Five. Seven. Five. That is a haiku!"),t+200); };
+  }
+  /* ---- rhyme scheme ---- */
+  const rbx=$("#rhymeBox");
+  if(rbx){ const L=JSON.parse(rbx.dataset.lines); const col={A:"#db2777",B:"#2563eb",C:"#16a34a",D:"#ea580c"};
+    rbx.innerHTML=L.map(([t,l])=>`<div class="rline"><span class="rl" style="background:${col[l]}">${l}</span><span class="rt">${t}</span></div>`).join("");
+    $("#rhymeBtn").onclick=()=>{ const r=[...rbx.querySelectorAll(".rline")]; r.forEach(x=>x.classList.remove("on")); r.forEach((x,i)=>setTimeout(()=>x.classList.add("on"),i*600));
+      setTimeout(()=>speak("The rhyme scheme is "+L.map(x=>x[1]).join(" ")+"."),r.length*600+200); };
+  }
+  /* ---- text structures ---- */
+  const ST=[
+   ["Sequence","🔢","first, next, then, after, finally, steps",`<div class="org seqorg"><div class="ob">1</div>➜<div class="ob">2</div>➜<div class="ob">3</div>➜<div class="ob">4</div></div>`,"<mark>First</mark>, the seed soaks up water. <mark>Next</mark>, a root grows down. <mark>Finally</mark>, leaves open."],
+   ["Cause & Effect","💥","because, so, as a result, therefore, led to, since",`<div class="org"><div class="ob big">CAUSE</div><div class="arrowx">➜</div><div class="ob big">EFFECT</div></div>`,"<mark>Because</mark> it rained for days, the river flooded. <mark>As a result</mark>, roads closed."],
+   ["Compare & Contrast","⚖️","both, alike, however, unlike, but, while, similarly",`<div class="org"><div class="vv a">A</div><div class="vv b">B</div></div>`,"Frogs and toads are <mark>both</mark> amphibians. <mark>However</mark>, frogs have smooth skin, <mark>while</mark> toads have bumpy skin."],
+   ["Problem & Solution","🔐","problem, issue, solve, fix, solution, to help",`<div class="org"><div class="ob big">🔒 PROBLEM</div><div class="arrowx">➜</div><div class="ob big">🔑 SOLUTION</div></div>`,"The cafeteria wasted food every day. <mark>To fix this</mark>, students started a compost program."],
+   ["Description","🕸️","for example, such as, characteristics, features",`<div class="org web"><div class="ob">detail</div><div class="ob hub">TOPIC</div><div class="ob">detail</div></div>`,"The giant panda has black-and-white fur, round ears, and a special bone that helps it grip bamboo."]];
+  const stb=$("#structBtns");
+  if(stb){ stb.innerHTML=ST.map((x,i)=>`<button data-st="${i}">${x[1]} ${x[0]}</button>`).join("");
+    stb.querySelectorAll("[data-st]").forEach(b=>b.onclick=()=>{ const x=ST[+b.dataset.st]; stb.querySelectorAll("button").forEach(y=>y.classList.toggle("on",y===b));
+      $("#structStage").innerHTML=`<div class="ctype">${x[1]} ${x[0]}</div>${x[3]}<div class="csent" style="padding-left:0">${x[4]}</div><div><b>Signal words:</b> <i>${x[2]}</i></div>`;
+      speak(x[0]+". "+$("#structStage .csent").innerText+" Signal words: "+x[2]); });
+  }
+  /* ---- inference equation ---- */
+  const IF=[["Jamal walks in with a dripping umbrella and wet shoes.","Umbrellas get wet in the rain.","It is raining outside."],
+            ["Lena keeps checking the clock and tapping her foot.","People tap their feet and check the time when they are impatient.","Lena is impatient or worried."],
+            ["Tomas walked past his best friend to sit with the new girl who was alone.","Sitting with someone alone is a kind thing to do.","Tomas is kind and caring."]];
+  const ifb=$("#infBtns");
+  if(ifb){ ifb.innerHTML=IF.map((x,i)=>`<button data-inf="${i}">Example ${i+1}</button>`).join("");
+    ifb.querySelectorAll("[data-inf]").forEach(b=>b.onclick=()=>{ const x=IF[+b.dataset.inf]; ifb.querySelectorAll("button").forEach(y=>y.classList.toggle("on",y===b));
+      $("#infStage").innerHTML=`<div class="pieces"><div class="piece p" style="animation-delay:0s"><div class="pm">📖 TEXT CLUES</div><div>${x[0]}</div></div><div class="plus" style="animation-delay:.5s">+</div>
+        <div class="piece r" style="animation-delay:.8s"><div class="pm">🧠 WHAT I KNOW</div><div>${x[1]}</div></div><div class="plus" style="animation-delay:1.3s">=</div>
+        <div class="piece s" style="animation-delay:1.6s"><div class="pm">💡 INFERENCE</div><div>${x[2]}</div></div></div>`;
+      speak("Text clues: "+x[0]+" What I know: "+x[1]+" So my inference is: "+x[2]); });
+  }
+  /* ---- multiple meaning ---- */
+  const MM=[["bat","🏏 a wooden stick used to hit a ball","🦇 a flying mammal","The <u>bat</u> flew out of the cave at dusk.",1],
+            ["bark","🌳 the outer covering of a tree","🐕 the sound a dog makes","The dog's loud <u>bark</u> woke the baby.",1],
+            ["pitcher","⚾ the player who throws the ball","🫗 a container for pouring drinks","Marcus filled the <u>pitcher</u> with lemonade.",1],
+            ["current","📅 happening now","🌊 a flow of water or air","Strong ocean <u>currents</u> carried the boat away.",1],
+            ["file","📁 to store papers in order","🪚 a tool to smooth rough edges","Please <u>file</u> the papers in the cabinet.",0]];
+  const mmb=$("#mmBtns");
+  if(mmb){ mmb.innerHTML=MM.map((x,i)=>`<button data-mm="${i}">${x[0]}</button>`).join("");
+    mmb.querySelectorAll("[data-mm]").forEach(b=>b.onclick=()=>{ const x=MM[+b.dataset.mm]; mmb.querySelectorAll("button").forEach(y=>y.classList.toggle("on",y===b));
+      $("#mmStage").innerHTML=`<div class="csent" style="padding-left:0">${x[3]}</div><div class="mmopts"><div class="mmo ${x[4]===0?"yes":"no"}">${x[1]}</div><div class="mmo ${x[4]===1?"yes":"no"}">${x[2]}</div></div><div>💡 The <b>other words in the sentence</b> tell you which meaning fits.</div>`;
+      speak($("#mmStage .csent").innerText+". Which meaning fits? "+(x[4]===0?x[1]:x[2])); });
+  }
+
+
+  document.querySelectorAll(".fcard").forEach(f=>f.onclick=()=>{f.classList.toggle("flip"); if(f.classList.contains("flip")) speak(f.querySelector(".fn").innerText+". "+f.querySelector(".bk").innerText);});
+  /* tone sky */
+  const sl=TEXTS.poem?$("#skyLines"):null;
+  if(sl){ const L=TEXTS.poem.blocks.map(b=>b.l); const tones=["gloomy","gloomy","tense","threatening","tense","tense","impatient","cozy","hopeful","bright","peaceful","joyful"];
+    sl.innerHTML=L.map((l,i)=>`<div class="sline" data-i="${i}"><span class="ln">${i+1}</span>${l}</div>`).join("");
+    $("#toneBtn").onclick=()=>{ const sky=$("#sky"); sky.className="sky"; [...sl.children].forEach(c=>c.classList.remove("lit")); let i=0;
+      const tick=()=>{ if(!document.getElementById("sky")||!sl.isConnected) return; if(i>0) sl.children[i-1].classList.remove("lit"); if(i>=L.length){ speak("The tone shifts from gloomy and threatening to bright and hopeful."); return; }
+        sl.children[i].classList.add("lit"); sky.className="sky s"+Math.min(4,Math.floor(i/2.5)) + (i>=8?" dawn":""); $("#toneTag").textContent="Tone: "+tones[i]; i++; setTimeout(tick,900); };
+      tick(); };
+  }
+  /* time machine */
+  const eras={old:`<div class="era old"><div class="eem">🏚️ 🐄 🐕 🌾</div><b>The 1920s farm:</b> Families needed help herding cows and guarding chickens. A good dog was a <b>worker</b>. "A dog earns his keep!"</div>`,
+              new:`<div class="era new"><div class="eem">🏙️ 🛋️ 🐶 🎂</div><b>Today:</b> Many families live in towns and cities. Dogs sleep on beds, wear sweaters, and get birthday treats. A dog is a <b>best friend</b>!</div>`};
+  document.querySelectorAll("[data-era]").forEach(b=>b.onclick=()=>{ const sc=$("#tmscene"); sc.classList.remove("warp"); void sc.offsetWidth; sc.classList.add("warp");
+    setTimeout(()=>{sc.innerHTML=eras[b.dataset.era]; speak(sc.innerText);},450); document.querySelectorAll("[data-era]").forEach(x=>x.classList.toggle("on",x===b)); });
+  /* triangle */
+  const ap={ethos:"🧑‍⚖️ <b>ETHOS (trust):</b> The writer shows why you should <b>trust</b> them: experience, a title, or an expert who agrees. <i>\"As a doctor for 20 years...\"</i>",
+            pathos:"❤️ <b>PATHOS (emotion):</b> The writer makes you <b>feel</b> something: sad, scared, proud, or hopeful. Look for <i>imagine, picture</i>, and vivid stories.",
+            logos:"🧠 <b>LOGOS (logic):</b> The writer uses <b>facts, numbers, statistics,</b> and reasons that make sense. <i>\"140 students signed a petition.\"</i>"};
+  document.querySelectorAll("[data-app]").forEach(b=>b.onclick=()=>{ document.querySelectorAll("[data-app]").forEach(x=>x.classList.toggle("on",x===b)); $("#appx").innerHTML=ap[b.dataset.app]; speak($("#appx").innerText); });
+  const sb=$("#sortBtn"); if(sb) sb.onclick=()=>{ const so=$("#sorter"); so.classList.remove("sorted"); [1,2,3].forEach(n=>$("#b"+n).innerHTML=""); so.querySelectorAll(".chip").forEach(c=>{c.style.opacity="1";c.style.textDecoration="none";});
+    [1,2,3].forEach((n,k)=>setTimeout(()=>{ const c=so.querySelector(".s"+n); c.style.opacity=".3"; c.style.textDecoration="line-through"; $("#b"+n).innerHTML=`<div class="landed">${c.textContent}</div>`; },700*(k+1)));
+    setTimeout(()=>speak("The doctor shows trust: ethos. The lonely puppy creates feelings: pathos. Nine out of ten is a statistic: logos."),2300); };
+  /* word builder */
+  const W=[["inaudible",[["in-","not","p"],["aud","hear","r"],["-ible","can be","s"]],"not able to be heard"],
+           ["transport",[["trans-","across","p"],["port","carry","r"]],"to carry across from one place to another"],
+           ["biology",[["bio","life","r"],["-ology","study of","s"]],"the study of life"],
+           ["predict",[["pre-","before","p"],["dict","say","r"]],"to say what will happen before it happens"],
+           ["invisible",[["in-","not","p"],["vis","see","r"],["-ible","can be","s"]],"not able to be seen"],
+           ["interrupt",[["inter-","between","p"],["rupt","break","r"]],"to break in between"],
+           ["telescope",[["tele","far","r"],["scope","look at","r"]],"a tool to look at things far away"],
+           ["fearless",[["fear","fear","r"],["-less","without","s"]],"without fear"]];
+  const bb=$("#bbtns");
+  if(bb){ bb.innerHTML=W.map((w,i)=>`<button data-build="${i}">${w[0]}</button>`).join("");
+    bb.querySelectorAll("[data-build]").forEach(b=>b.onclick=()=>{ const w=W[+b.dataset.build]; bb.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+      $("#bstage").innerHTML=`<div class="pieces">${w[1].map((p,k)=>`<div class="piece ${p[2]}" style="animation-delay:${k*.5}s"><div class="pw">${p[0]}</div><div class="pm">${p[1]}</div></div>${k<w[1].length-1?`<div class="plus" style="animation-delay:${k*.5+.25}s">+</div>`:""}`).join("")}</div>
+        <div class="whole" style="animation-delay:${w[1].length*.5+.2}s">= <b>${w[0]}</b>: ${w[2]}</div>`;
+      speak(w[1].map(p=>p[0].replace(/-/g,"")+" means "+p[1]).join(". ")+". So "+w[0]+" means "+w[2]+"."); });
+  }
+  /* context clues */
+  const C=[["Definition","or, is, means, which is, commas","The scientists studied the <u>arid</u>, <mark>or extremely dry</mark>, desert.","The author tells you the meaning right in the sentence."],
+           ["Synonym","also, like, similarly, ; (restates)","The puppy was <u>famished</u>; Ella could tell he was <mark>very hungry</mark>.","Another word or phrase means the same thing."],
+           ["Antonym","but, however, unlike, instead","<mark>Unlike</mark> his <u>gregarious</u> sister, Sam was <mark>shy and quiet</mark>.","The clue means the OPPOSITE of the unknown word."],
+           ["Example","such as, including, for example, like","<u>Marine</u> mammals, <mark>such as whales, dolphins, and seals</mark>, come up for air.","Examples help you figure out the meaning."],
+           ["Inference","no signal word: use all the details","After hiking six hours, Maya was so <u>exhausted</u> that she <mark>collapsed</mark> and <mark>fell asleep instantly</mark>.","Put all the details together, like a detective."]];
+  const cb=$("#cbtns");
+  if(cb){ cb.innerHTML=C.map((c,i)=>`<button data-clue="${i}">${c[0]}</button>`).join("");
+    cb.querySelectorAll("[data-clue]").forEach(b=>b.onclick=()=>{ const c=C[+b.dataset.clue]; cb.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+      $("#cstage").innerHTML=`<div class="ctype">${c[0]} Clue</div><div class="csent"><span class="mag">🔍</span>${c[2]}</div><div><b>Signal words:</b> <i>${c[1]}</i></div><div>💡 ${c[3]}</div>`;
+      speak(c[0]+" clue. "+$("#cstage .csent").innerText+". "+c[3]); });
+  }
+  /* connotation meter */
+  const M=[["thin",[["scrawny",8],["thin",50],["slim",90]],"All three mean not heavy. <b>Slim</b> sounds healthy, <b>thin</b> is neutral, and <b>scrawny</b> sounds weak."],
+           ["curious",[["nosy",8],["interested",52],["curious",72],["inquisitive",92]],"All mean wanting to know. <b>Nosy</b> is negative because it means poking into others' business."],
+           ["thrifty",[["stingy",8],["cheap",28],["frugal",60],["thrifty",90]],"All mean not spending much. <b>Thrifty</b> sounds smart, while <b>stingy</b> sounds selfish."],
+           ["confident",[["arrogant",8],["sure",52],["confident",90]],"All mean believing in yourself. <b>Arrogant</b> means thinking you're better than others."],
+           ["determined",[["stubborn",10],["persistent",62],["determined",90]],"All mean not giving up. <b>Stubborn</b> is negative, and <b>determined</b> is positive."],
+           ["crowd",[["mob",8],["crowd",50],["audience",85]],"All mean a group of people. <b>Mob</b> sounds angry and out of control."]];
+  const mb=$("#mbtns");
+  if(mb){ mb.innerHTML=M.map((m,i)=>`<button data-fam="${i}">${m[0]}</button>`).join("");
+    mb.querySelectorAll("[data-fam]").forEach(b=>b.onclick=()=>{ const m=M[+b.dataset.fam]; mb.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+      const mc=$("#mchips"); mc.innerHTML=m[1].map((w,k)=>`<div class="mchip" data-x="${w[1]}" style="left:50%;top:${8+k*36}px">${w[0]}</div>`).join("");
+      requestAnimationFrame(()=>setTimeout(()=>mc.querySelectorAll(".mchip").forEach((c,k)=>{ const x=+c.dataset.x; setTimeout(()=>{c.style.left=x+"%"; c.style.background=x<35?"#fecaca":x<70?"#e2e8f0":"#bbf7d0";},k*350);}),50));
+      mc.style.height=(16+m[1].length*36)+"px"; $("#mx").innerHTML=m[2]; speak($("#mx").innerText); });
+  }
+}
+
+function wireModel(){ const nb=$("#nextMs"); if(!nb) return; let k=0; const all=[...document.querySelectorAll(".mstep")];
+  const cur=()=>all[k]; setTimeout(()=>speak($("#mqtext").innerText+". "+cur().innerText),300);
+  nb.onclick=()=>{ if(k<all.length-1){ k++; all[k].classList.add("show"); all[k].scrollIntoView({behavior:"smooth",block:"center"}); speak(all[k].innerText); }
+    if(k>=all.length-1){ nb.disabled=true; nb.textContent="✅ All steps shown"; $("#msDone").classList.remove("hidden"); } };
+  $("#sayMs").onclick=()=>speak(cur().innerText);
+}
+/* =================== BOSS =================== */
+function vBoss(){
+  if(!WORLDS.every((w,i)=>worldDone(i))) return go("map");
+  const answered=Object.keys(S.boss).length, hits=BOSS.filter((b,i)=>S.boss[i]===b.a).length;
+  const hp=Math.max(0,100-hits/BOSS.length*100);
+  V().innerHTML=`<div class="boss" id="bossTop"><div style="font-weight:800;letter-spacing:2px">⚔️ FAST BOSS BATTLE</div>
+    <div class="bossface" id="bossFace">${answered===BOSS.length?(hits>=BOSS.length*0.75?"😵":"🐍"):"🐍"}</div>
+    <div>The Fallacy Serpent • HP</div><div class="hp"><div class="hpfill" style="width:${hp}%"></div></div>
+    <div>Each correct answer hits The Fallacy Serpent! 💥 <b>${hits}</b> hits • Answered ${answered} / ${BOSS.length}</div></div>
+   <div class="dir">⚔️ <b>Boss rules:</b> Read Jordan's argument essay about school start times. Watch for the claim, evidence, appeals, and one sneaky fallacy! <b>One try</b> per question, just like the real FAST. No hints, but you can reread!</div>
+   <div class="card">${textsHTML(BOSS_TEXTS,true,"b")}</div>
+   <div class="card">${BOSS.map((b,i)=>{const ch=S.boss[i];
+     return `<div class="q" id="bq-${i}"><div class="qt">${i+1}. ${esc(b.q)}</div>
+      <button class="say" data-say="#bq-${i} .qt">🔊 Read Question</button><button class="say" data-say="#bq-${i} .opts">🔊 Read Choices</button>
+      <div class="opts">${order(b.o.length,seedOf("boss"+i)).map((n,pos)=>{const o=b.o[n]; let cls="opt"; if(ch!==undefined){ if(n===ch) cls+= n===b.a?" right":" wrong"; else if(n===b.a) cls+=" reveal";}
+        return `<button class="${cls}" data-bq="${i}" data-n="${n}" ${ch!==undefined?"disabled":""}>${String.fromCharCode(65+pos)}. ${esc(o)}</button>`}).join("")}</div>
+      ${ch!==undefined?`<div class="fb ${ch===b.a?"good":"bad"}">${ch===b.a?"💥 Direct hit!":"🛡️ The Fallacy Serpent blocked it! The answer was <b>"+String.fromCharCode(65+order(b.o.length,seedOf("boss"+i)).indexOf(b.a))+"</b>."}</div>`:""}</div>`}).join("")}
+    <button class="big" id="finishBoss" ${answered===BOSS.length?"":"disabled"}>${answered===BOSS.length?"🏆 See My Results":"Answer all "+BOSS.length+" to finish"}</button></div>`;
+  const fb=$("#finishBoss"); fb.onclick=()=>{ if(!S.bossDone){S.bossDone=true; reward(30,15,innerWidth/2,innerHeight/2);} go("results"); };
+}
+/* =================== RESULTS =================== */
+function vResults(){
+  if(!S.bossDone) return go("map");
+  const rows=WORLDS.map(w=>{const ck=w.checks.filter((c,j)=>S.ans[w.id+"-"+j]?.first).length; const bs=BOSS.map((b,i)=>[b,i]).filter(([b])=>b.std===w.id); const bc=bs.filter(([b,i])=>S.boss[i]===b.a).length;
+    return {w,ck,ckT:w.checks.length,bc,bT:bs.length};});
+  const bossScore=BOSS.filter((b,i)=>S.boss[i]===b.a).length;
+  const checkScore=rows.reduce((a,r)=>a+r.ck,0), checkT=rows.reduce((a,r)=>a+r.ckT,0);
+  const missed=BOSS.map((b,i)=>S.boss[i]!==b.a?`Boss #${i+1}`:null).filter(Boolean);
+  const needs=rows.filter(r=>r.bc<r.bT).map(r=>r.w.title);
+  V().innerHTML=`<div class="card" style="text-align:center"><div class="badgepop"><div class="b">${S.avatar}</div></div>
+   <h2>${esc(S.name||"Reader")}, Quest Complete! 🎉</h2>
+   <p style="font-family:Fredoka;font-size:24px">${title()} • Level ${level()} • ${S.xp} XP • 🪙 ${S.coins}</p>
+   <div style="font-family:Fredoka;font-size:52px">Boss: ${bossScore} / ${BOSS.length}</div>
+   <p>First-try checks: <b>${checkScore} / ${checkT}</b></p>
+   <table class="rt"><tr><th>Skill</th><th>I Can</th><th>Checks</th><th>Boss</th></tr>
+   ${rows.map(r=>`<tr><td>${r.w.emoji} <b>${r.w.title}</b><br><small>${r.w.std}</small></td><td style="font-size:15px">${esc(r.w.ican)}</td><td>${r.ck}/${r.ckT}</td><td>${r.bc}/${r.bT} ${r.bc===r.bT?"✅":"🔁"}</td></tr>`).join("")}</table>
+   <p><b>❌ Missed:</b> ${missed.length?missed.join(", "):"None! 🌟"}</p>
+   ${needs.length?`<p>🔁 <b>Review again:</b> ${needs.join(", ")}. Tap that level on the map to rewatch the lesson and the model.</p>`:"<p>🌟 You showed mastery of every standard!</p>"}
+   <div class="blist">${WORLDS.map(w=>`<span class="${S.badges.includes(w.id)?"":"no"}">${w.badge} ${w.badgeName}</span>`).join("")}<span>🏆 Boss Slayer</span></div>
+   <p style="font-weight:800;margin-top:14px">📸 Take a screenshot of this page and upload it to the Canvas module!</p>
+   <p style="font-size:14px;color:#6b6584">Completed ${new Date().toLocaleDateString()}</p>
+   <button class="big alt" data-go="map">🗺️ Back to Map</button></div>`;
+  confetti();
+}
+
+/* =================== EVENTS =================== */
+document.addEventListener("click",e=>{
+  const t=e.target;
+  const wb=t.closest("[data-world]"); if(wb && !wb.classList.contains("locked")){ go("w"+(+wb.dataset.world+1)); return; }
+  const bb=t.closest("[data-boss]"); if(bb && !bb.classList.contains("locked")){ go("boss"); return; }
+  const gv=t.closest("[data-go]"); if(gv){ go(gv.dataset.go); return; }
+  const st=t.closest("[data-step]"); if(st && !st.disabled){ const i=+S.view.slice(1)-1; S.step[WORLDS[i].id]=+st.dataset.step; save(); render(); window.scrollTo({top:0,behavior:"smooth"}); return; }
+  const hb=t.closest("[data-hint]"); if(hb){ S.hints[hb.dataset.hint]=true; save(); refreshChecks(); speak(document.querySelector("#q-"+hb.dataset.hint+" .hintbox").innerText); return; }
+  const qb=t.closest("[data-q]");
+  if(qb && !qb.disabled){
+    const k=qb.dataset.q, n=+qb.dataset.n, [wid,j]=k.split("-"), w=WORLDS.find(x=>x.id===wid), c=w.checks[+j];
+    const a=S.ans[k]||{tries:[],done:false,first:false}; if(a.done) return;
+    a.tries.push(n);
+    if(n===c.a){ a.done=true; a.first=a.tries.length===1&&!S.hints[k];
+      const xp=a.tries.length===1?(S.hints[k]?7:10):5, co=a.tries.length===1?5:2;
+      S.streak++; S.best=Math.max(S.best,S.streak); reward(xp,co,e.clientX,e.clientY); miniBurst(e.clientX,e.clientY);
+    } else { S.streak=0; if(a.tries.length>=2) a.done=true; }
+    S.ans[k]=a; save(); hud(); refreshChecks();
+    const box=document.getElementById("q-"+k); if(n!==c.a&&box){box.classList.add("shake");}
+    const fbEl=box&&box.querySelector(".fb"); if(fbEl) speak(fbEl.innerText);
+    return;
+  }
+  const bq=t.closest("[data-bq]");
+  if(bq && !bq.disabled){
+    const i=+bq.dataset.bq, n=+bq.dataset.n; if(S.boss[i]!==undefined) return;
+    S.boss[i]=n; const ok=n===BOSS[i].a;
+    if(ok){ S.streak++; reward(10,5,e.clientX,e.clientY); miniBurst(e.clientX,e.clientY);} else S.streak=0;
+    save(); const y=scrollY; vBoss(); scrollTo(0,y); hud();
+    if(ok){ const f=$("#bossFace"); f.classList.add("hit"); }
+    return;
+  }
+  if(t.id==="shopBtn"){ renderShop(); $("#shop").classList.add("on"); return; }
+  if(t.id==="shopClose"||t.id==="shop"){ $("#shop").classList.remove("on"); return; }
+  if(t.id==="mapBtn"){ if(S.name.trim()) go("map"); else go("start"); return; }
+  const buy=t.closest("[data-buy]");
+  if(buy){ const it=SHOP[+buy.dataset.buy];
+    if(S.owned.includes(it.e)){ S.avatar=it.e; } else if(S.coins>=it.c){ S.coins-=it.c; S.owned.push(it.e); S.avatar=it.e; miniBurst(innerWidth/2,innerHeight/2); }
+    save(); hud(); renderShop(); return; }
+});
+function refreshChecks(){ const i=+S.view.slice(1)-1, w=WORLDS[i]; const box=$("#checks"); if(!box) return;
+  box.innerHTML=w.checks.map((c,j)=>qHTML(w,j)).join("");
+  const tb=$("#toBadge"); if(tb){ const d=worldDone(i); tb.disabled=!d; tb.textContent=d?"Claim My Badge! 🏅":"Answer all checks to continue"; if(d) tb.classList.add("shake"); } }
+function renderShop(){ $("#sCoins").textContent=S.coins;
+  $("#shopGrid").innerHTML=SHOP.map((it,i)=>{const own=S.owned.includes(it.e); const on=S.avatar===it.e;
+    return `<div class="item"><div class="ie">${it.e}</div><b>${it.n}</b><br>${own?(on?"✅ Wearing":`<button data-buy="${i}">Wear</button>`):`<button data-buy="${i}" ${S.coins<it.c?"disabled":""}>🪙 ${it.c}</button>`}</div>`}).join(""); }
+
+/* =================== CONFETTI =================== */
+const cv=$("#confetti"), cx=cv.getContext("2d"); let parts=[], anim=null;
+function sz(){cv.width=innerWidth; cv.height=innerHeight;} sz(); addEventListener("resize",sz);
+const COLS=["#f97316","#ef4444","#7c3aed","#0d9488","#2563eb","#facc15","#16a34a","#db2777"];
+function add(n,x,y,sp){for(let i=0;i<n;i++)parts.push({x:x??Math.random()*cv.width,y:y??-20,vx:(Math.random()-.5)*sp,vy:y!=null?Math.random()*-8-2:Math.random()*3+2,r:Math.random()*7+4,c:COLS[i%8],a:Math.random()*6,va:(Math.random()-.5)*.3,l:0}); if(!anim)loop();}
+function loop(){cx.clearRect(0,0,cv.width,cv.height); parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.15;p.a+=p.va;p.l++;cx.save();cx.translate(p.x,p.y);cx.rotate(p.a);cx.fillStyle=p.c;cx.fillRect(-p.r/2,-p.r/2,p.r,p.r*.6);cx.restore();});
+ parts=parts.filter(p=>p.y<cv.height+30&&p.l<420); anim=parts.length?requestAnimationFrame(loop):null; if(!anim)cx.clearRect(0,0,cv.width,cv.height);}
+function miniBurst(x,y){add(24,x,y,10);}
+function confetti(){let k=0; const t=setInterval(()=>{add(60,null,null,6); if(++k>6)clearInterval(t);},250);}
+
+render();
+</script>
+</body>
+</html>
